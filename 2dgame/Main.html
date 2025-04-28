@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>2D Adventure</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #000;
+        }
+        canvas {
+            display: block;
+            margin: auto;
+            background-color: #000;
+            max-width: 100%;
+            max-height: 100vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<script type="module">
+    import TileManager from './TileManager.js';
+    import KeyHandler from './KeyHandler.js';
+    import CollisionChecker from './CollisionChecker.js';
+    import AssetSetter from './AssetSetter.js';
+    import UI from './UI.js';
+    import EventHandler from './Eventhandler.js';
+    import Player from './Player.js';
+
+    class GamePanel {
+        constructor(canvas) {
+            // SCREEN SETTINGS
+            this.originalTileSize = 16;
+            this.scale = 3;
+            this.tileSize = this.originalTileSize * this.scale;
+            this.maxScreenCol = 40;
+            this.maxScreenRow = 23;
+            this.screenWidth = this.tileSize * this.maxScreenCol;
+            this.screenHeight = this.tileSize * this.maxScreenRow;
+            this.maxMap = 10;
+            this.currentMap = 0;
+
+            // Set canvas size
+            canvas.width = this.screenWidth;
+            canvas.height = this.screenHeight;
+            
+            this.canvas = canvas;
+            this.ctx = canvas.getContext('2d');
+
+            // Game States - Define states first
+            this.playState = 1;
+            this.pauseState = 2;
+            this.dialogueState = 3;
+            this.gameOverState = 4; // Add game over state
+            
+            // Then set initial state
+            this.gameState = this.playState;
+
+            // Initialize components in correct order
+            this.keyH = new KeyHandler(this);  // Initialize KeyHandler first
+            this.player = new Player(this, this.keyH);  // Then create player
+            this.tileM = new TileManager(this);
+            this.cChecker = new CollisionChecker(this);
+            this.aSetter = new AssetSetter(this);
+            this.ui = new UI(this);
+            this.eHandler = new EventHandler(this);
+
+            // Initialize arrays
+            this.obj = Array.from({ length: this.maxMap }, () => Array(10).fill(null));
+            this.npc = Array.from({ length: this.maxMap }, () => Array(10).fill(null));
+            this.monster = Array.from({ length: this.maxMap }, () => Array(20).fill(null));
+
+            // Modify timing properties
+            this.FPS = 60;
+            this.deltaTime = 0;
+            this.lastTime = 0;
+        }
+
+        setUpGame() {
+            this.aSetter.setObject();
+            this.aSetter.setNPC();
+            this.aSetter.setMonster();
+            this.gameState = this.playState;
+        }
+
+        startGameThread() {
+            const gameLoop = (currentTime) => {
+                // Calculate delta time in seconds
+                this.deltaTime = (currentTime - this.lastTime) / 1000;
+                this.lastTime = currentTime;
+                
+                // Cap delta time to prevent huge jumps
+                if (this.deltaTime > 0.1) {
+                    this.deltaTime = 0.1;
+                }
+                
+                this.update();
+                this.draw();
+                
+                requestAnimationFrame(gameLoop);
+            };
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        update() {
+            if (this.gameState === this.playState) {
+                this.player.update();
+
+                // Update NPCs
+                this.npc[this.currentMap]?.forEach(npc => {
+                    if (npc) npc.update();
+                });
+
+                // Update Monsters
+                this.monster[this.currentMap]?.forEach((monster, index) => {
+                    if (monster && monster.alive && !monster.dying) {
+                        monster.update();
+                    }
+                    if (monster && !monster.alive) {
+                        this.monster[this.currentMap][index] = null;
+                    }
+                });
+            }
+        }
+
+        draw() {
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+            // Draw tiles first
+            this.tileM.draw(this.ctx);
+
+            // Draw objects
+            this.obj[this.currentMap]?.forEach(object => {
+                if (object) object.draw(this.ctx, this);
+            });
+
+            // Draw NPCs
+            this.npc[this.currentMap]?.forEach(npc => {
+                if (npc) npc.draw(this.ctx);
+            });
+
+            // Draw Monsters
+            this.monster[this.currentMap]?.forEach(monster => {
+                if (monster) monster.draw(this.ctx);
+            });
+
+            // Draw Player
+            this.player.draw(this.ctx);
+
+            // Draw UI
+            this.ui.draw(this.ctx);
+        }
+    }
+
+    // Main
+    window.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('gameCanvas');
+        const gamePanel = new GamePanel(canvas);
+        gamePanel.setUpGame();
+        gamePanel.startGameThread();
+    });
+</script>
+
+</body>
+</html>
