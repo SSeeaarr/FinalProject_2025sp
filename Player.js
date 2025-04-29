@@ -18,11 +18,12 @@ export default class Player {
             width: 48,   // (1 tile = 48 pixels)
             height: 48  // 
         };
+        this.showHitbox = false; // DEBUG Set this to true to see hitboxes and possibly modify attacks
         this.canAttack = true;
         this.attackCooldown = 1.0;     // Cooldown duration in seconds
         this.attackTimer = 0;          // Track cooldown progress
         this.attackDuration = 0.4;     // Duration of attack animation
-        this.showHitbox = false; // DEBUG Set this to true to see hitboxes and possibly modify attacks
+        
 
         // Modify invincibility properties
         this.invincible = false;
@@ -45,7 +46,7 @@ export default class Player {
         this.speed = 2;
         this.direction = "down";
 
-        // CHARACTER STATS //-------------------------------
+        // CHARACTER BASE STATS //-------------------------------
         this.maxLife = 6;
         this.life = this.maxLife;
         this.level = 1;
