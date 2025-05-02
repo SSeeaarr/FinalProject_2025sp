@@ -18,7 +18,7 @@ export default class Player {
             width: 92,   // (1 tile = 48 pixels)
             height: 92  // 
         };
-        this.showHitbox = true; // DEBUG Set this to true to see hitboxes and possibly modify attacks
+        this.showHitbox = false; // DEBUG Set this to true to see hitboxes and possibly modify attacks
         this.canAttack = true;
         this.attackCooldown = 0.2;     // Cooldown duration in seconds
         this.attackTimer = 0;          // Track cooldown progress
