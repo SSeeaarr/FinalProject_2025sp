@@ -30,70 +30,101 @@ export default class Monster {
 
         this.baseSpeed = 80; // pixels per second (slower than NPC)
         this.moving = true; // Monsters are always moving by default
+
+        // Add reward properties
+        this.exp = 1;       // Default XP reward
+        this.coins = 1;     // Default coin reward
+        this.dropsLoot = true;  // Flag to control if monster drops rewards
+
+        // Add knockback properties
+        this.canBeKnockedBack = true;  // Default value
+        this.knockbackDistance = 30;    // Default knockback distance in pixels
+        this.knockbackDuration = 0.2;   // Default knockback duration in seconds
+        this.knockbackTimer = 0;
+        this.isKnockedBack = false;
+        this.knockbackDirection = { x: 0, y: 0 };
+
+        // Movement behavior settings
+        this.movementType = 'random'; // 'random' or 'chase'
+        this.actionLockDuration = 120; // frames until next direction change for random movement
+
+        // Movement properties
+        this.directionTimer = 0;
+        this.directionChangeInterval = 2; // seconds between direction changes
+
+        // Death animation properties
+        this.dyingTimer = 0;
+        this.dyingDuration = 0.5; // Default 0.5 second death animation
+        this.currentAlpha = 1;
+        this.flashCount = 5;
     }
 
     draw(ctx) {
-        let image = null;
-        switch(this.direction) {
-            case "up":
-                image = this.spriteNum === 1 ? this.up1 : this.up2;
-                break;
-            case "down":
-                image = this.spriteNum === 1 ? this.down1 : this.down2;
-                break;
-            case "left":
-                image = this.spriteNum === 1 ? this.left1 : this.left2;
-                break;
-            case "right":
-                image = this.spriteNum === 1 ? this.right1 : this.right2;
-                break;
-        }
-        
-        if (image && image instanceof Image) {
-            // Flash when hit
-            if (this.invincible) {
-                ctx.globalAlpha = 0.5;
-            }
-            
-            // Fade out when dying
-            if (this.dying) {
-                ctx.globalAlpha = 1 - (this.dyingCounter / 30);
+        if (this.currentImage && this.currentImage.complete) {
+            // Set transparency based on state
+            if (this.invincible && !this.dying) {
+                ctx.globalAlpha = 0.5; // Half transparency during invincibility
+            } else if (this.dying) {
+                ctx.globalAlpha = this.currentAlpha; // Use death animation alpha
+            } else {
+                ctx.globalAlpha = 1.0; // Full visibility normally
             }
 
-            ctx.drawImage(image, this.x, this.y, this.gp.tileSize, this.gp.tileSize);
-            
-            // Reset alpha
-            ctx.globalAlpha = 1;
+            // Draw the current frame
+            ctx.drawImage(
+                this.currentImage,
+                this.x,
+                this.y,
+                this.gp.tileSize,
+                this.gp.tileSize
+            );
+
+            // Reset transparency
+            ctx.globalAlpha = 1.0;
+
+            // Draw health bar if needed and not dying
+            if (this.showHealthBar && !this.dying && this.alive) {
+                this.drawHealthBar(ctx);
+            }
         }
-
-        // Draw health bar if visible
-        if (this.showHealthBar) {
-            const barWidth = 20;
-            const barHeight = 3;
-            const barX = this.x + (this.gp.tileSize - barWidth) / 2;
-            const barY = this.y - 10;
-
-            // Draw background bar
-            ctx.fillStyle = "darkred";
-            ctx.fillRect(barX, barY, barWidth, barHeight);
-
-            // Draw health amount
-            const healthWidth = (this.life / this.maxLife) * barWidth;
-            ctx.fillStyle = "lime";
-            ctx.fillRect(barX, barY, healthWidth, barHeight);
-        }
-
-        // Reset any changed drawing states
-        ctx.globalAlpha = 1;
     }
 
     update() {
         if (this.dying) {
-            this.dyingCounter++;
-            if (this.dyingCounter > 30) {
-                this.alive = false;
-            }
+            this.dyingAnimation();
             return;
+        }
+
+        // Handle knockback movement
+        if (this.isKnockedBack) {
+            this.knockbackTimer += this.gp.deltaTime;
+            
+            if (this.knockbackTimer < this.knockbackDuration) {
+                // Calculate knockback movement
+                const progress = 1 - (this.knockbackTimer / this.knockbackDuration); // Easing
+                const knockbackSpeed = this.knockbackDistance * progress;
+                
+                const moveX = this.knockbackDirection.x * knockbackSpeed * this.gp.deltaTime;
+                const moveY = this.knockbackDirection.y * knockbackSpeed * this.gp.deltaTime;
+
+                // Store previous position
+                const prevX = this.x;
+                const prevY = this.y;
+
+                // Apply knockback movement with collision check
+                this.x += moveX;
+                this.collisionOn = false;
+                this.gp.cChecker.checkTile(this);
+                if (this.collisionOn) this.x = prevX;
+
+                this.y += moveY;
+                this.collisionOn = false;
+                this.gp.cChecker.checkTile(this);
+                if (this.collisionOn) this.y = prevY;
+            } else {
+                this.isKnockedBack = false;
+            }
+            return; // Skip normal movement while being knocked back
         }
 
         if (this.invincible) {
@@ -115,63 +146,11 @@ export default class Monster {
             }
         }
 
-        // Update movement decision
-        this.actionLockCounter += this.gp.deltaTime;
-        
-        if (this.actionLockCounter >= 2) { // Every 2 seconds
-            // Choose new random direction
-            const random = Math.floor(Math.random() * 4);
-            this.direction = ["up", "down", "left", "right"][random];
-            this.actionLockCounter = 0;
-        }
-
-        // Movement with delta time
-        if (this.moving) {
-            const moveDistance = this.baseSpeed * this.gp.deltaTime;
-
-            // Reset collision flag
-            this.collisionOn = false;
-            
-            // Check tile collision
-            this.gp.cChecker.checkTile(this);
-            
-            // Store previous position
-            const prevX = this.x;
-            const prevY = this.y;
-            
-            // Move if no collision
-            if (!this.collisionOn) {
-                switch(this.direction) {
-                    case "up": this.y -= moveDistance; break;
-                    case "down": this.y += moveDistance; break;
-                    case "left": this.x -= moveDistance; break;
-                    case "right": this.x += moveDistance; break;
-                }
-            }
-            
-            // Check collision after moving
-            this.collisionOn = false;
-            this.gp.cChecker.checkTile(this);
-            
-            // If collision occurred, revert position and change direction
-            if (this.collisionOn) {
-                this.x = prevX;
-                this.y = prevY;
-                
-                // Choose new random direction
-                let newDirection;
-                do {
-                    const random = Math.floor(Math.random() * 4);
-                    newDirection = ["up", "down", "left", "right"][random];
-                } while (newDirection === this.direction);
-                this.direction = newDirection;
-            }
-
-            // Update animation with delta time
-            this.spriteCounter += this.gp.deltaTime;
-            if (this.spriteCounter > 0.2) { // Change sprite every 0.2 seconds
-                this.spriteNum = this.spriteNum === 1 ? 2 : 1;
-                this.spriteCounter = 0;
+        if (this.alive && !this.dying && !this.isKnockedBack) {
+            if (this.movementType === 'chase') {
+                this.moveTowardPlayer(this.gp.deltaTime);
+            } else {
+                this.moveRandomly(this.gp.deltaTime);
             }
         }
     }
@@ -201,10 +180,199 @@ export default class Monster {
             this.showHealthBar = true;
             this.healthBarCounter = 0;
 
+            // Apply knockback if the monster can be knocked back
+            if (this.canBeKnockedBack) {
+                this.applyKnockback();
+            }
+
             if (this.life <= 0) {
                 this.dying = true;
-                this.alive = false;
+                this.dyingCounter = 0;
             }
         }
+    }
+
+    applyKnockback() {
+        // Get direction from player to monster for knockback
+        const dx = this.x - this.gp.player.x;
+        const dy = this.y - this.gp.player.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Normalize direction
+        if (distance > 0) {
+            this.knockbackDirection = {
+                x: dx / distance,
+                y: dy / distance
+            };
+            this.isKnockedBack = true;
+            this.knockbackTimer = 0;
+        }
+    }
+
+    moveTowardTarget(targetX, targetY, speed, deltaTime) {
+        // Calculate direction vector toward the target
+        const dx = targetX - this.x;
+        const dy = targetY - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > 0) {
+            const moveX = (dx / distance) * speed * deltaTime;
+            const moveY = (dy / distance) * speed * deltaTime;
+
+            // Update position with collision checks
+            const prevX = this.x;
+            const prevY = this.y;
+
+            this.x += moveX;
+            this.collisionOn = false;
+            this.gp.cChecker.checkTile(this);
+            if (this.collisionOn) this.x = prevX;
+
+            this.y += moveY;
+            this.collisionOn = false;
+            this.gp.cChecker.checkTile(this);
+            if (this.collisionOn) this.y = prevY;
+        }
+    }
+
+    moveTowardPlayer(deltaTime) {
+        const actualSpeed = this.baseSpeed * deltaTime;
+        const dx = this.gp.player.x - this.x;
+        const dy = this.gp.player.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > this.gp.tileSize) {
+            const moveX = (dx / distance) * actualSpeed;
+            const moveY = (dy / distance) * actualSpeed;
+
+            const prevX = this.x;
+            const prevY = this.y;
+
+            this.x += moveX;
+            this.collisionOn = false;
+            this.gp.cChecker.checkTile(this);
+            if (this.collisionOn) this.x = prevX;
+
+            this.y += moveY;
+            this.collisionOn = false;
+            this.gp.cChecker.checkTile(this);
+            if (this.collisionOn) this.y = prevY;
+        }
+    }
+
+    moveRandomly(deltaTime) {
+        // Update direction change timer
+        this.directionTimer += deltaTime;
+        
+        // Change direction every few seconds
+        if (this.directionTimer >= this.directionChangeInterval) {
+            const random = Math.floor(Math.random() * 4);
+            this.direction = ["up", "down", "left", "right"][random];
+            this.directionTimer = 0;
+        }
+
+        // Calculate movement distance based on deltaTime
+        const moveDistance = this.baseSpeed * deltaTime;
+        const prevX = this.x;
+        const prevY = this.y;
+
+        // Move in current direction
+        switch(this.direction) {
+            case "up": this.y -= moveDistance; break;
+            case "down": this.y += moveDistance; break;
+            case "left": this.x -= moveDistance; break;
+            case "right": this.x += moveDistance; break;
+        }
+
+        // Check collision and revert if needed
+        this.collisionOn = false;
+        this.gp.cChecker.checkTile(this);
+        if (this.collisionOn) {
+            this.x = prevX;
+            this.y = prevY;
+            this.directionTimer = this.directionChangeInterval; // Force direction change
+        }
+    }
+
+    dyingAnimation() {
+        // Increment dying timer using deltaTime
+        this.dyingTimer += this.gp.deltaTime;
+        
+        const flashDuration = this.dyingDuration / this.flashCount;
+        const currentFlash = Math.floor(this.dyingTimer / flashDuration);
+        
+        // Set visibility based on current flash cycle
+        this.currentAlpha = currentFlash % 2 === 0 ? 1 : 0;
+
+        // Continue animation frames during death
+        const FRAME_DURATION = 0.19;
+        this.spriteCounter += this.gp.deltaTime;
+        while (this.spriteCounter >= FRAME_DURATION) {
+            this.currentFrame = (this.currentFrame + 1) % this.frames.length;
+            this.currentImage = this.frames[this.currentFrame].img;
+            this.spriteCounter -= FRAME_DURATION;
+        }
+
+        // Check if animation is complete
+        if (this.dyingTimer >= this.dyingDuration) {
+            if (this.dropsLoot) {
+                this.giveRewards();
+            }
+            this.dying = false;
+            this.alive = false;
+        }
+    }
+
+    drawHealthBar(ctx) {
+        const barWidth = 40;
+        const barHeight = 6;
+        const barX = this.x + (this.gp.tileSize - barWidth) / 2;
+        const barY = this.y - 10;
+
+        ctx.fillStyle = "darkred";
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+
+        const healthWidth = (this.life / this.maxLife) * barWidth;
+        ctx.fillStyle = "lime";
+        ctx.fillRect(barX, barY, healthWidth, barHeight);
+    }
+
+    // Modify the giveRewards method
+    giveRewards() {
+        // Add experience to player
+        this.gp.player.exp += this.exp;
+        this.gp.ui.showMessage(`Gained ${this.exp} EXP!`);
+        
+        // Check for level up
+        if (this.gp.player.exp >= this.gp.player.nextLevelExp) {
+            // Level up!
+            this.gp.player.level++;
+            this.gp.player.exp = 0;
+            this.gp.player.nextLevelExp = Math.floor(this.gp.player.nextLevelExp * 1.5);
+            
+            // Stat increases
+            this.gp.player.maxLife += 1;
+            this.gp.player.life = this.gp.player.maxLife;
+            this.gp.player.strength += 1;
+            
+            // Show multiple messages for level up
+            this.gp.ui.showMessage(`LEVEL UP! You are now level ${this.gp.player.level}!`);
+            
+            // Add a small delay before showing stat increases so messages don't overlap
+            setTimeout(() => {
+                this.gp.ui.showMessage(`Max HP increased to ${this.gp.player.maxLife}!`);
+            }, 1000);
+            
+            setTimeout(() => {
+                this.gp.ui.showMessage(`Strength increased to ${this.gp.player.strength}!`);
+            }, 2000);
+        }
+
+        // Add coins to player
+        this.gp.player.coin += this.coins;
+        this.gp.ui.showMessage(`Found ${this.coins} coins!`);
+
+        // Prevent multiple rewards
+        this.dropsLoot = false;
     }
 }

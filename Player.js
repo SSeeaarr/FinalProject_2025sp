@@ -15,12 +15,12 @@ export default class Player {
 
         // Attack properties // -------------------------------
         this.attackArea = {
-            width: 48,   // (1 tile = 48 pixels)
-            height: 48  // 
+            width: 92,   // (1 tile = 48 pixels)
+            height: 92  // 
         };
-        this.showHitbox = false; // DEBUG Set this to true to see hitboxes and possibly modify attacks
+        this.showHitbox = true; // DEBUG Set this to true to see hitboxes and possibly modify attacks
         this.canAttack = true;
-        this.attackCooldown = 1.0;     // Cooldown duration in seconds
+        this.attackCooldown = 0.2;     // Cooldown duration in seconds
         this.attackTimer = 0;          // Track cooldown progress
         this.attackDuration = 0.4;     // Duration of attack animation
         
@@ -32,6 +32,22 @@ export default class Player {
 
         // Track previous state of attack key to detect key press event
         this.attackKeyPreviouslyPressed = false;
+
+        // Inventory properties
+        this.inventory = [];
+        this.maxInventorySize = 20;  // Changed from 15 to 20
+        this.currentWeapon = null;
+        this.currentArmor = null;
+        this.showInventory = false;  // Toggle for inventory display
+
+        // Add equipment properties
+        this.attack = 1;
+        this.defense = 1;
+        this.currentWeapon = null;
+        this.currentArmor = null;
+
+        // Add dialogue cooldown property
+        this.dialogueCooldown = 0;
 
         this.setDefaultValues();
         this.getPlayerImages();
@@ -106,7 +122,12 @@ export default class Player {
     }
 
     update() {
-        // Handle invincibility first
+        // Update dialogue cooldown
+        if (this.dialogueCooldown > 0) {
+            this.dialogueCooldown -= this.gp.deltaTime;
+        }
+
+        // Handle invincibility first (run this regardless of inventory state)
         if (this.invincible) {
             this.invincibleTimer += this.gp.deltaTime;
             if (this.invincibleTimer >= this.invincibleDuration) {
@@ -115,7 +136,7 @@ export default class Player {
             }
         }
 
-        // Update attack cooldown
+        // Update attack cooldown (run this regardless of inventory state)
         if (!this.canAttack) {
             this.attackTimer -= this.gp.deltaTime;
             if (this.attackTimer <= 0) {
@@ -124,22 +145,59 @@ export default class Player {
             }
         }
 
-        // Check for monster contact immediately, before any movement
+        // Check for monster contact immediately (run this regardless of inventory state)
         let monsterIndex = this.gp.cChecker.checkEntity(this, this.gp.monster);
         if (monsterIndex !== 999 && !this.invincible) {
             this.contactMonster(monsterIndex);
         }
+        
+        // Don't process movement or attacks if inventory is open
+        if (this.showInventory) {
+            return;
+        }
 
+        // Modify the NPC interaction section in update()
+        if (this.keyH.enterPressed) {
+            
+            // Reset the enterPressed flag immediately to prevent multiple triggers
+            this.keyH.enterPressed = false;
+            
+            // Check if dialogue cooldown has expired
+            if (this.dialogueCooldown <= 0) {
+                // Use the dedicated NPC interaction check
+                const npcIndex = this.gp.cChecker.checkNPCInteraction(this);
+                
+                if (npcIndex !== 999) {
+                    
+                    // Force gameState change to dialogue
+                    this.gp.gameState = this.gp.dialogueState;
+                    
+                    // Check if the NPC exists at that index
+                    if (this.gp.npc[this.gp.currentMap] && this.gp.npc[this.gp.currentMap][npcIndex]) {
+                        
+                        this.gp.npc[this.gp.currentMap][npcIndex].speak();
+                        
+                    } else {
+                        console.error("NPC not found at index", npcIndex, "in map", this.gp.currentMap);
+                    }
+                    
+                    // Skip the rest of the update method
+                    return;
+                }
+            }
+        }
+
+        
         
         if (this.attacking) {
             this.updateAttacking();
         } 
-        // Only allow new attack if not attacking, can attack, and enter was just pressed
-        else if (this.keyH.enterPressed && this.canAttack && !this.attacking) {
+        else if (this.keyH.attackPressed && this.canAttack && !this.attacking) {
             this.attacking = true;
             this.attackingCounter = 0;
             this.spriteNum = 1; // Reset sprite to first frame
             this.canAttack = false;
+            this.attackTimer = this.attackCooldown; // Reset attack timer
             this.hitMonsters = new Set(); // Reset hit monsters for new attack
         }
         else if (this.keyH.upPressed || this.keyH.downPressed || 
@@ -189,7 +247,7 @@ export default class Player {
                     if (obj.collision) {
                         this.collisionOn = true;
                     }
-                    this.pickUpObject(objIndex);  // Call pickUpObject when touching any object
+                    this.pickUpObject(objIndex, this.gp.currentMap);  // Call pickUpObject when touching any object
                 }
             }
 
@@ -235,7 +293,7 @@ export default class Player {
                     if (obj.collision) {
                         this.collisionOn = true;
                     }
-                    this.pickUpObject(objIndex);  // Call pickUpObject when touching any object
+                    this.pickUpObject(objIndex, this.gp.currentMap);  // Call pickUpObject when touching any object
                 }
             }
 
@@ -263,7 +321,7 @@ export default class Player {
                     if (obj.collision) {
                         this.collisionOn = true;
                     }
-                    this.pickUpObject(objIndex);  // Call pickUpObject when touching any object
+                    this.pickUpObject(objIndex, this.gp.currentMap);  // Call pickUpObject when touching any object
                 }
             }
 
@@ -374,16 +432,15 @@ export default class Player {
 
     damageMonster(monster) {
         if (!monster.invincible) {
-            // Calculate damage based on player's strength
-            const damage = Math.max(this.strength, 1);
-            monster.life -= damage;
-            monster.invincible = true;
+            // Calculate damage based on player's strength AND attack stat
+            const baseDamage = this.strength;
+            const weaponDamage = this.attack;
+            const totalDamage = Math.max(baseDamage + weaponDamage, 1);
             
-            // Check if monster dies
-            if (monster.life <= 0) {
-                monster.dying = true;
-                monster.alive = false;
-            }
+            console.log(`Dealing ${totalDamage} damage to ${monster.name} (Base: ${baseDamage}, Weapon: ${weaponDamage})`);
+            
+            // Call monster's takeDamage method
+            monster.takeDamage(totalDamage);
         }
     }
 
@@ -398,8 +455,21 @@ export default class Player {
 
     contactMonster(index) {
         if (index !== 999 && !this.invincible) {
-            // Take damage
-            this.life -= 1;
+            // Get the monster that hit the player
+            const monster = this.gp.monster[this.gp.currentMap][index];
+            
+            // Calculate damage with defense reduction
+            const incomingDamage = monster ? 1 : 1; // Default damage is 1
+            const defenseReduction = Math.min(this.defense * 0.5, 0.9); // Defense reduces damage by up to 90%
+            const finalDamage = Math.max(Math.ceil(incomingDamage * (1 - defenseReduction)), 1); // At least 1 damage
+            
+            // Apply damage
+            this.life -= finalDamage;
+            
+            // Show damage message
+            if (finalDamage > 0) {
+                this.gp.ui.showMessage(`Took ${finalDamage} damage!`);
+            }
             
             // Start invincibility period
             this.invincible = true;
@@ -412,58 +482,131 @@ export default class Player {
         }
     }
 
-    pickUpObject(index) {
+    pickUpObject(index, mapNum) {
         if (index !== 999) {
-            const obj = this.gp.obj[this.gp.currentMap][index];
-            
+            const obj = this.gp.obj[mapNum][index];
             if (!obj) return;
-
             
-
-            switch(obj.name.toLowerCase()) {
-                case 'key':
-                    this.hasKey++;
-                    this.gp.obj[this.gp.currentMap][index] = null;
-                    
-                    break;
-
-                case 'chest':
-                    if (this.hasKey > 0 && obj.collision) {
-                        this.hasKey--;
-                        this.gp.obj[this.gp.currentMap][index] = null;
-                        
-                    } else if (this.hasKey === 0) {
-                        
+            // Get object name
+            const objName = obj.name;
+            
+            // Handle different object types
+            switch(obj.type) {
+                case "key":
+                    // Add the key to inventory instead of incrementing hasKey counter
+                    if (this.addToInventory(obj)) {
+                        this.hasKey++; // Still increment key count for compatibility
+                        this.gp.obj[mapNum][index] = null;
+                        this.gp.ui.showMessage(`Got a ${objName}!`, "loot");
+                    } else {
+                        this.gp.ui.showMessage("Inventory full!");
                     }
                     break;
-
-                case 'door':
-                    if (obj.destinationMap !== null) {
-                        // Change to destination map
+                    
+                case "door":
+                    // Check both hasKey counter and actual inventory
+                    if (this.hasKey > 0 && this.removeKeyFromInventory()) {
+                        this.gp.obj[mapNum][index] = null;
+                        this.hasKey--;
+                        this.gp.ui.showMessage("You opened the door!");
+                    } else {
+                        this.gp.ui.showMessage("You need a key to open this door!", "lock");
+                    }
+                    break;
+                    
+                case "teleporter":
+                    // This is for doors that act as teleporters between maps
+                    if (obj.destinationMap != null) {
+                        // Change to the destination map
                         this.gp.currentMap = obj.destinationMap;
-                        // Set player position to door's destination coordinates
+                        
+                        // Move player to destination coordinates
                         this.x = obj.destinationX * this.gp.tileSize;
                         this.y = obj.destinationY * this.gp.tileSize;
-                        console.log(`Teleported to map ${obj.destinationMap} at position (${obj.destinationX}, ${obj.destinationY})`);
+                        
+                        this.gp.ui.showMessage("Teleported to a new area!");
                     }
                     break;
-
-                case 'hotdog':
+                    
+                case "health":
+                    // Immediately use health item (hotdog)
                     if (this.life < this.maxLife) {
-                        this.life++;
-                        this.gp.obj[this.gp.currentMap][index] = null;
+                        this.life = Math.min(this.life + obj.healValue, this.maxLife);
+                        this.gp.obj[mapNum][index] = null;
+                        this.gp.ui.showMessage(`You ate the ${objName} and recovered health!`);
+                    } else {
+                        // When health is full, show message once and make object non-interactable for a short time
+                        if (!obj.messageShown) {
+                            this.gp.ui.showMessage("Your health is already full!");
+                            obj.messageShown = true;
+                            
+                            // Reset the flag after a delay to prevent message spam
+                            setTimeout(() => {
+                                if (this.gp.obj[mapNum] && this.gp.obj[mapNum][index]) {
+                                    this.gp.obj[mapNum][index].messageShown = false;
+                                }
+                            }, 2000);
+
+                        }
+                    }
+                    break;
+                    
+                case "chest":
+                    // Check both hasKey counter and actual inventory
+                    if (this.hasKey > 0 && this.removeKeyFromInventory()) {
+                        this.hasKey--;
+                        
+                        // Give a random amount of coins (3-10)
+                        const coinsFound = Math.floor(Math.random() * 8) + 3;
+                        this.coin += coinsFound;
+                        
+                        // Single combined message
+                        this.gp.ui.showMessage(`You opened the chest and found ${coinsFound} coins!`, "loot");
+                        
+                        // Remove the chest from the game world
+                        this.gp.obj[mapNum][index] = null;
+                    } else {
+                        this.gp.ui.showMessage("You need a key to open this chest!", "lock");
+                    }
+                    break;
+                    
+                case "equipment":
+                    if (this.addToInventory(obj)) {
+                        this.gp.obj[mapNum][index] = null;
+                        this.gp.ui.showMessage(`Got ${objName}!`);
+                    } else {
+                        this.gp.ui.showMessage("Inventory full!");
+                    }
+                    break;
+                    
+                case "consumable":
+                    if (this.addToInventory(obj)) {
+                        this.gp.obj[mapNum][index] = null;
+                        this.gp.ui.showMessage(`Got ${objName}!`);
+                    } else {
+                        this.gp.ui.showMessage("Inventory full!");
                     }
                     break;
             }
         }
     }
 
-    interactNPC(index) {
-        if (index !== 999) {
-            if (this.keyH.enterPressed) {
-                this.gp.gameState = this.gp.dialogueState;
-                this.gp.npc[this.gp.currentMap][index].speak();
+    removeKeyFromInventory() {
+        for (let i = 0; i < this.inventory.length; i++) {
+            if (this.inventory[i].type === "key") {
+                this.inventory.splice(i, 1);
+                return true;
             }
+        }
+        return false;
+    }
+
+    interactNPC(index) {
+        // This method should now be very simple
+        if (index !== 999 && this.keyH.enterPressed) {
+            this.keyH.enterPressed = false;
+            this.gp.gameState = this.gp.dialogueState;
+            this.gp.npc[this.gp.currentMap][index].speak();
         }
     }
 
@@ -580,5 +723,59 @@ export default class Player {
                 );
             }
         }
+    }
+
+    addToInventory(item) {
+        if (this.inventory.length < this.maxInventorySize) {
+            this.inventory.push(item);
+            return true;
+        }
+        return false;
+    }
+
+    equipItem(item) {
+        if (item.type === "equipment") {
+            if (item.equipType === "weapon") {
+                // If the item is already equipped, unequip it
+                if (this.currentWeapon === item) {
+                    this.attack -= item.attack;
+                    this.currentWeapon = null;
+                    this.gp.ui.showMessage(`Unequipped ${item.name}`);
+                    return true;
+                }
+                // Otherwise equip the new weapon
+                else {
+                    // Unequip current weapon if one exists
+                    if (this.currentWeapon) {
+                        this.attack -= this.currentWeapon.attack;
+                    }
+                    // Equip new weapon
+                    this.currentWeapon = item;
+                    this.attack += item.attack;
+                    this.gp.ui.showMessage(`Equipped ${item.name}`);
+                }
+            } else if (item.equipType === "armor") {
+                // If the item is already equipped, unequip it
+                if (this.currentArmor === item) {
+                    this.defense -= item.defense;
+                    this.currentArmor = null;
+                    this.gp.ui.showMessage(`Unequipped ${item.name}`);
+                    return true;
+                }
+                // Otherwise equip the new armor
+                else {
+                    // Unequip current armor if one exists
+                    if (this.currentArmor) {
+                        this.defense -= this.currentArmor.defense;
+                    }
+                    // Equip new armor
+                    this.currentArmor = item;
+                    this.defense += item.defense;
+                    this.gp.ui.showMessage(`Equipped ${item.name}`);
+                }
+            }
+            return true;
+        }
+        return false;
     }
 }

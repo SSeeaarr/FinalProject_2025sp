@@ -99,35 +99,43 @@ export default class CollisionChecker {
 
   checkEntity(entity, target) {
     let index = 999;
-
-    for (let i = 0; i < target[this.gp.currentMap].length; i++) {
-      const targetEntity = target[this.gp.currentMap][i];
-      if (targetEntity && targetEntity !== entity) {
-        // Calculate current positions for collision check
-        const entityArea = {
-          x: entity.x + entity.solidAreaDefaultX,
-          y: entity.y + entity.solidAreaDefaultY,
-          width: entity.solidArea.width,
-          height: entity.solidArea.height
-        };
-
-        const targetArea = {
-          x: targetEntity.x + targetEntity.solidAreaDefaultX,
-          y: targetEntity.y + targetEntity.solidAreaDefaultY,
-          width: targetEntity.solidArea.width,
-          height: targetEntity.solidArea.height
-        };
-
-        // Simple rectangle intersection check
-        if (this._rectIntersect(entityArea, targetArea)) {
-          if (targetEntity !== entity) {
-            entity.collisionOn = true;
-            index = i;
-          }
+    const currentMapTarget = target[entity.gp.currentMap];
+    
+    if (!currentMapTarget) return index;
+    
+    for (let i = 0; i < currentMapTarget.length; i++) {
+        if (currentMapTarget[i] == null) continue;
+        
+        // Get entity's solid area position
+        let entityLeft = entity.x + entity.solidArea.x;
+        let entityRight = entity.x + entity.solidArea.x + entity.solidArea.width;
+        let entityTop = entity.y + entity.solidArea.y;
+        let entityBottom = entity.y + entity.solidArea.y + entity.solidArea.height;
+        
+        // Get target's solid area position
+        let targetLeft = currentMapTarget[i].x + currentMapTarget[i].solidArea.x;
+        let targetRight = currentMapTarget[i].x + currentMapTarget[i].solidArea.x + currentMapTarget[i].solidArea.width;
+        let targetTop = currentMapTarget[i].y + currentMapTarget[i].solidArea.y;
+        let targetBottom = currentMapTarget[i].y + currentMapTarget[i].solidArea.y + currentMapTarget[i].solidArea.height;
+        
+        // Standard collision detection
+        if (entityRight > targetLeft && 
+            entityLeft < targetRight && 
+            entityBottom > targetTop && 
+            entityTop < targetBottom) {
+            
+            // THIS IS THE KEY CHANGE: Only set collision if the target has it enabled
+            if (currentMapTarget[i].collision === true) {
+                entity.collisionOn = true;
+            }
+            
+            // For player, always return the index for interaction purposes
+            if (entity === entity.gp.player) {
+                index = i;
+            }
         }
-      }
     }
-
+    
     return index;
   }
 
@@ -180,5 +188,42 @@ export default class CollisionChecker {
         r1.y < r2.y + r2.height &&
         r1.y + r1.height > r2.y
     );
+  }
+
+  // Add this new method specifically for NPC interaction - separate from collision
+  checkNPCInteraction(player) {
+    let index = 999;
+    const currentMap = player.gp.currentMap;
+    
+    // Make sure NPCs exist on this map
+    if (!player.gp.npc[currentMap]) return index;
+    
+    for (let i = 0; i < player.gp.npc[currentMap].length; i++) {
+        const npc = player.gp.npc[currentMap][i];
+        if (!npc) continue;
+        
+        // Use a larger interaction radius instead of collision boxes
+        const interactionRadius = 40; // Pixels
+        
+        // Calculate centers for both entities
+        const playerCenterX = player.x + player.gp.tileSize/2;
+        const playerCenterY = player.y + player.gp.tileSize/2;
+        
+        const npcCenterX = npc.x + player.gp.tileSize/2;
+        const npcCenterY = npc.y + player.gp.tileSize/2;
+        
+        // Calculate distance between centers
+        const dx = playerCenterX - npcCenterX;
+        const dy = playerCenterY - npcCenterY;
+        const distance = Math.sqrt(dx*dx + dy*dy);
+        
+        // Use distance-based check only for interaction
+        if (distance < interactionRadius) {
+            
+            return i;
+        }
+    }
+    
+    return index;
   }
 }

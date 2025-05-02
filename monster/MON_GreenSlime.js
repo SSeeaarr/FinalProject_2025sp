@@ -4,32 +4,34 @@ export default class MON_GreenSlime extends Monster {
     constructor(gp) {
         super(gp);
         
+        this.canBeKnockedBack = false;
         this.name = "Green Slime";
-        this.speed = 1;
+        this.baseSpeed = 80; // pixels per second
         this.maxLife = 4;
         this.life = this.maxLife;
         
+        // Set movement type to random with custom timing
+        this.movementType = 'random';
+        this.directionChangeInterval = 1.5; // Change direction every 1.5 seconds
+        
         this.spriteCounter = 0;
         this.currentFrame = 0;
-        this.totalFrames = 12; // Total number of unique frames
+        this.totalFrames = 12;
         
-        // Animation sequence array
         this.frames = [];
         this.loadImages();
 
-        // Add invincibility animation settings
-        this.invincibleDuration = 0.5; // Invincibility duration in seconds
+        // Invincibility settings
+        this.invincibleDuration = 0.5;
         this.invincibleTimer = 0;
 
-        // Add fleeing properties
-        this.isFleeing = false;
-        this.fleeSpeed = 1; // Faster than normal speed when fleeing
-        this.fleeDuration = 2; // Flee duration in seconds
-        this.fleeTimer = 0;
+        // Dying properties
+        this.dyingDuration = 0.5; // Can be customized per monster type
+        this.flashCount = 5;
 
-        // Add dying properties
-        this.dyingDuration = 2; // Total dying animation duration in seconds
-        this.dyingTimer = 0;
+        // Rewards
+        this.exp = 2;
+        this.coins = 1;
     }
 
     loadImages() {
@@ -61,103 +63,62 @@ export default class MON_GreenSlime extends Monster {
     }
 
     update() {
-        // Call parent class update for basic monster behavior
-        super.update();
-
-        // Store original position for collision checking
-        const prevX = this.x;
-        const prevY = this.y;
-
-        // Handle invincibility and fleeing
-        if (this.invincible) {
-            this.invincibleTimer += this.gp.deltaTime;
-            
-            // Move away from player while invincible
-            if (this.isFleeing) {
-                // Update flee timer
-                this.fleeTimer += this.gp.deltaTime;
-                if (this.fleeTimer >= this.fleeDuration) {
-                    this.isFleeing = false;
-                    this.fleeTimer = 0;
-                }
-
-                // Calculate direction away from player
-                const dx = this.x - this.gp.player.x;
-                const dy = this.y - this.gp.player.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance > 0) {
-                    // Normalize and apply flee speed
-                    const moveX = (dx / distance) * this.fleeSpeed;
-                    const moveY = (dy / distance) * this.fleeSpeed;
-                    
-                    // Try to move away with collision checks
-                    this.x += moveX;
-                    // Check collisions after X movement
-                    if (this.gp.cChecker.checkTile(this) || 
-                        this.gp.cChecker.checkEntity(this, this.gp.monster) !== 999 ||
-                        this.gp.cChecker.checkEntity(this, this.gp.npc) !== 999) {
-                        this.x = prevX;
-                    }
-
-                    this.y += moveY;
-                    // Check collisions after Y movement
-                    if (this.gp.cChecker.checkTile(this) || 
-                        this.gp.cChecker.checkEntity(this, this.gp.monster) !== 999 ||
-                        this.gp.cChecker.checkEntity(this, this.gp.npc) !== 999) {
-                        this.y = prevY;
-                    }
-                }
-            }
-
-            // Check if invincibility is over
-            if (this.invincibleTimer >= this.invincibleDuration) {
-                this.invincible = false;
-                this.invincibleTimer = 0;
-                this.isFleeing = false;
-            }
+        if (this.dying) {
+            super.dyingAnimation();
+            return;
         }
 
-        // Only update animation if not dying
-        if (!this.dying) {
-            // Store previous position
-            const prevX = this.x;
-            const prevY = this.y;
+        if (this.alive) {
+            // Handle invincibility
+            if (this.invincible) {
+                this.invincibleTimer += this.gp.deltaTime;
+                if (this.invincibleTimer >= this.invincibleDuration) {
+                    this.invincible = false;
+                    this.invincibleTimer = 0;
+                }
+            }
 
-            // Update position
+            // Call parent class update for movement
+            super.update();
+
+            // Update animation
             this.spriteCounter += this.gp.deltaTime;
-            if (this.spriteCounter > 0.19) {
+            if (this.spriteCounter > 0.1) {
                 this.currentFrame = (this.currentFrame + 1) % this.frames.length;
                 this.currentImage = this.frames[this.currentFrame].img;
                 this.spriteCounter = 0;
-
-                // Check collisions with other entities
-                if (this.gp.cChecker.checkEntity(this, this.gp.monster) !== 999 ||
-                    this.gp.cChecker.checkEntity(this, this.gp.npc) !== 999) {
-                    // Revert position if collision occurs
-                    this.x = prevX;
-                    this.y = prevY;
-                }
             }
-        } else {
-            this.dyingAnimation();
         }
     }
 
     dyingAnimation() {
+        // Increment dying timer using deltaTime
         this.dyingTimer += this.gp.deltaTime;
+        
         const flashCount = 5;
-        const flashDuration = this.dyingDuration / flashCount;
+        const totalDuration = 1.0; // Total dying animation duration in seconds
+        const flashDuration = totalDuration / flashCount; // Duration of each flash in seconds
 
-        // Calculate which flash cycle we're in
+        // Calculate which flash cycle we're in based on deltaTime
         const currentFlash = Math.floor(this.dyingTimer / flashDuration);
         
         // Set visibility based on current flash cycle
         this.currentAlpha = currentFlash % 2 === 0 ? 1 : 0;
 
-        // Check if animation is complete (after 5 flashes)
-        if (currentFlash >= flashCount) {
-            this.currentAlpha = 1; // Ensure visible for final state
+        // Continue animation frames during death
+        const FRAME_DURATION = 0.19;
+        this.spriteCounter += this.gp.deltaTime;
+        while (this.spriteCounter >= FRAME_DURATION) {
+            this.currentFrame = (this.currentFrame + 1) % this.frames.length;
+            this.currentImage = this.frames[this.currentFrame].img;
+            this.spriteCounter -= FRAME_DURATION;
+        }
+
+        // Check if animation is complete (after specified duration)
+        if (this.dyingTimer >= totalDuration) {
+            if (this.dropsLoot) {
+                this.giveRewards();
+            }
             this.dying = false;
             this.alive = false;
         }
@@ -213,8 +174,6 @@ export default class MON_GreenSlime extends Monster {
         if (!this.invincible) {
             this.life -= amount;
             this.invincible = true;
-            this.isFleeing = true;
-            this.fleeTimer = 0;
             
             if (this.life <= 0) {
                 this.dying = true;

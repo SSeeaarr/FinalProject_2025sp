@@ -11,15 +11,16 @@ export default class NPC_OldMan {
         this.moving = false;
         this.actionLockCounter = 0;
         
-        // Collision
+        // Collision - properly sized and positioned
         this.solidArea = {
-            x: 8,
-            y: 16,
-            width: 32,
-            height: 32
+            x: 8,      // Small offset from left edge
+            y: 16,     // Positioned closer to feet
+            width: 16, // Narrower than full sprite
+            height: 16 // Shorter, focused on lower body
         };
         this.solidAreaDefaultX = this.solidArea.x;
         this.solidAreaDefaultY = this.solidArea.y;
+        this.collision = true; // Keep collision enabled
         
         // Character attributes
         this.name = "Old Man";
@@ -64,22 +65,19 @@ export default class NPC_OldMan {
     }
 
     speak() {
-        if (this.dialogues[this.dialogueIndex]) {
+        if (this.dialogues.length > 0) {
             this.gp.ui.currentDialogue = this.dialogues[this.dialogueIndex];
-            this.gp.gameState = this.gp.dialogueState;
+            
             this.dialogueIndex++;
-        } else {
-            this.dialogueIndex = 0;
-            this.gp.gameState = this.gp.playState;
+            
+            // If we've reached the end of dialogues, reset and return true to indicate completion
+            if (this.dialogueIndex >= this.dialogues.length) {
+                this.dialogueIndex = 0;
+                this.gp.gameState = this.gp.playState;
+                return true; // Dialogue ended
+            }
         }
-
-        // Make NPC face the player
-        switch(this.gp.player.direction) {
-            case "up": this.direction = "down"; break;
-            case "down": this.direction = "up"; break;
-            case "left": this.direction = "right"; break;
-            case "right": this.direction = "left"; break;
-        }
+        return false; // Dialogue continuing
     }
 
     update() {

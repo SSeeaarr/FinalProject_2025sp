@@ -86,6 +86,9 @@ class GamePanel {
     if (this.gameState === this.pauseState) {
       // Handle pause state logic if necessary
     }
+
+    // Add UI update
+    this.ui.update();
   }
 
   // Render all game elements to the canvas
@@ -204,6 +207,10 @@ class UI {
 
   draw(ctx) {
     // Draw the UI elements
+  }
+
+  update() {
+    // Update the UI elements
   }
 }
 

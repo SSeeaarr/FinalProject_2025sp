@@ -125,14 +125,16 @@
                     if (npc) npc.update();
                 });
 
-                // Update Monsters
-                this.monster[this.currentMap]?.forEach((monster, index) => {
-                    if (monster && monster.alive && !monster.dying) {
-                        monster.update();
+                // Update Monsters and remove dead ones
+                this.monster[this.currentMap] = this.monster[this.currentMap].filter(monster => {
+                    if (monster) {
+                        if (monster.alive || monster.dying) {
+                            monster.update();
+                            return true;
+                        }
+                        return false;
                     }
-                    if (monster && !monster.alive) {
-                        this.monster[this.currentMap][index] = null;
-                    }
+                    return false;
                 });
             }
         }
