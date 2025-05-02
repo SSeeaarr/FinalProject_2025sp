@@ -10,7 +10,7 @@ export default class OBJ_Key extends SuperObject {
         
         // Load the image
         this.image = new Image();
-        this.image.src = './res/objects/key.png';
+        this.image.src = './res/objects/Key.png';
     }
 
     use(player) {
