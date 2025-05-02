@@ -15,8 +15,8 @@ export default class Player {
 
         // Attack properties // -------------------------------
         this.attackArea = {
-            width: 70,   // (1 tile = 48 pixels)
-            height: 192  // 
+            width: 92,   // (1 tile = 48 pixels)
+            height: 92  // 
         };
         this.showHitbox = true; // DEBUG Set this to true to see hitboxes and possibly modify attacks
         this.canAttack = true;
