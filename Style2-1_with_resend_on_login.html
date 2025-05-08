@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Final Quest - 2D Adventure</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100%;
+            font-family: Arial, sans-serif;
+            background-color: #000;
+        }
+        
+        /* PIXELATED FOREST BACKGROUND */
+        body {
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 64 64"><rect width="64" height="64" fill="%23113311"/><path d="M8,48 L16,32 L24,48 Z" fill="%23225522"/><path d="M32,56 L40,36 L48,56 Z" fill="%23225522"/><path d="M16,60 L24,44 L32,60 Z" fill="%23227722"/><path d="M40,44 L48,28 L56,44 Z" fill="%23227722"/><path d="M0,36 L8,16 L16,36 Z" fill="%23227722"/><path d="M20,32 L28,12 L36,32 Z" fill="%23225522"/><rect x="8" y="48" width="4" height="16" fill="%23553311"/><rect x="36" y="56" width="4" height="8" fill="%23553311"/><rect x="20" y="60" width="4" height="4" fill="%23553311"/><rect x="44" y="44" width="4" height="12" fill="%23553311"/><rect x="4" y="36" width="4" height="12" fill="%23553311"/><rect x="24" y="32" width="4" height="12" fill="%23553311"/></svg>');
+            background-repeat: repeat;
+            background-size: 128px 128px;
+            image-rendering: pixelated;
+        }
+        
+        canvas {
+            display: none;
+            margin: auto;
+            background-color: #000;
+            max-width: 100%;
+            max-height: 100vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+        
+        /* Auth Container */
+        .auth-container {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 400px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+        }
+        
+        h2 {
+            margin-bottom: 20px;
+            text-align: center;
+            color: #113311;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        form {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 10px;
+        }
+        
+        input {
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 15px;
+            margin-bottom: 12px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus {
+            border-color: #227722;
+            outline: none;
+            box-shadow: 0 0 5px rgba(34, 119, 34, 0.3);
+        }
+        
+        button {
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            background-color: #227722;
+            color: white;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        button:hover {
+            background-color: #113311;
+        }
+        
+        a {
+            color: #227722;
+            text-decoration: none;
+            font-size: 14px;
+            text-align: center;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        #message {
+            margin-top: 10px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            text-align: center;
+        }
+        
+        #confirmPasswordField input,
+        #confirmCodeField input {
+            width: 100%;
+        }
+        
+        #confirmPasswordField,
+        #confirmCodeField {
+            display: none;
+        }
+        
+        #resendCodeBtn {
+            margin-top: 10px;
+            background-color: #6c757d;
+        }
+        
+        #resendCodeBtn:hover {
+            background-color: #5a6268;
+        }
+        
+        /* Character Selection Screen */
+        .character-select {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 800px;
+            text-align: center;
+            z-index: 50;
+        }
+        
+        .character-options {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .character-option {
+            width: 150px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .character-option:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+        
+        .character-option.selected {
+            border: 3px solid #227722;
+            background: rgba(240, 255, 240, 0.9);
+        }
+        
+        .character-icon {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 10px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 48px;
+            background: #f0f0f0;
+            border: 2px solid #113311;
+        }
+        
+        .knight-icon { background-color: #b0c4de; }
+        .mage-icon { background-color: #add8e6; }
+        .archer-icon { background-color: #90ee90; }
+        .gambler-icon { background-color: #ffb6c1; }
+        
+        .character-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .character-desc {
+            font-size: 12px;
+            color: #555;
+            height: 50px;
+            overflow: hidden;
+        }
+        
+        .start-button {
+            margin-top: 30px;
+            padding: 15px 30px;
+            background-color: #227722;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .start-button:hover {
+            background-color: #113311;
+        }
+        
+        .character-input {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 15px;
+            width: 80%;
+            max-width: 300px;
+        }
+        
+        /* Pixel art character placeholders */
+        .pixel-character {
+            image-rendering: pixelated;
+            width: 80px;
+            height: 80px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Auth Container (Login/Signup) -->
+    <div class="auth-container" id="authContainer">
+        <h2 id="formTitle">Login to Final Quest</h2>
+        <form id="authForm">
+            <input type="email" id="email" name="email" placeholder="Email" required />
+            <input type="password" id="password" name="password" placeholder="Password" required />
+
+            <div id="confirmPasswordField">
+                <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Confirm Password" />
+            </div>
+
+            <button type="submit" id="submitBtn">Login</button>
+
+            <div id="confirmCodeField">
+<div id="resetPasswordField" style="display:none; flex-direction: column;">
+    <input type="text" id="resetCode" placeholder="Reset Code" />
+    <input type="password" id="newPassword" placeholder="New Password" />
+    <button type="button" id="submitNewPasswordBtn">Submit New Password</button>
+</div>
+
+                <input type="text" id="confirmCode" name="confirmCode" placeholder="Confirmation Code" />
+                <button type="button" id="confirmCodeBtn">Confirm Account</button>
+                <button type="button" id="resendCodeBtn">Resend Code</button>
+            </div>
+            <p id="message"></p>
+        </form>
+        <a href="#" id="toggleMode">Don't have an account? Sign up</a>
+<a href="#" id="forgotPasswordLink">Forgot Password?</a>
+
+    </div>
+
+    <!-- Character Selection Screen -->
+    <div class="character-select" id="characterSelect">
+        <h2>Choose Your Hero</h2>
+        <input type="text" class="character-input" id="characterName" placeholder="Enter your character's name" required>
+        
+        <div class="character-options">
+            <div class="character-option" data-class="Knight">
+                <div class="character-icon knight-icon">
+                    <svg class="pixel-character" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="6" y="2" width="4" height="2" fill="#333"/>
+                        <rect x="5" y="4" width="6" height="2" fill="#888"/>
+                        <rect x="4" y="6" width="8" height="2" fill="#888"/>
+                        <rect x="6" y="8" width="4" height="2" fill="#888"/>
+                        <rect x="5" y="10" width="6" height="2" fill="#888"/>
+                        <rect x="4" y="12" width="3" height="2" fill="#333"/>
+                        <rect x="9" y="12" width="3" height="2" fill="#333"/>
+                    </svg>
+                </div>
+                <div class="character-name">Knight</div>
+                <div class="character-desc">Strong defense and melee attacks. Starts with a sword and shield.</div>
+            </div>
+            
+            <div class="character-option" data-class="Mage">
+                <div class="character-icon mage-icon">
+                    <svg class="pixel-character" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="7" y="1" width="2" height="2" fill="#333"/>
+                        <rect x="6" y="3" width="4" height="1" fill="#44F"/>
+                        <rect x="5" y="4" width="6" height="2" fill="#44F"/>
+                        <rect x="7" y="6" width="2" height="4" fill="#44F"/>
+                        <rect x="5" y="10" width="6" height="2" fill="#44F"/>
+                        <rect x="4" y="12" width="3" height="2" fill="#44F"/>
+                        <rect x="9" y="12" width="3" height="2" fill="#44F"/>
+                    </svg>
+                </div>
+                <div class="character-name">Mage</div>
+                <div class="character-desc">Powerful spells and magic abilities. Weak defense but high damage.</div>
+            </div>
+            
+            <div class="character-option" data-class="Archer">
+                <div class="character-icon archer-icon">
+                    <svg class="pixel-character" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="7" y="2" width="2" height="2" fill="#333"/>
+                        <rect x="5" y="4" width="6" height="2" fill="#484"/>
+                        <rect x="4" y="6" width="8" height="2" fill="#484"/>
+                        <rect x="7" y="8" width="2" height="2" fill="#484"/>
+                        <rect x="5" y="10" width="6" height="2" fill="#484"/>
+                        <rect x="4" y="12" width="3" height="2" fill="#484"/>
+                        <rect x="9" y="12" width="3" height="2" fill="#484"/>
+                    </svg>
+                </div>
+                <div class="character-name">Archer</div>
+                <div class="character-desc">Long-range attacks and high accuracy. Balanced speed and damage.</div>
+            </div>
+            
+            <div class="character-option" data-class="Gambler">
+                <div class="character-icon gambler-icon">
+                    <svg class="pixel-character" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="7" y="2" width="2" height="2" fill="#333"/>
+                        <rect x="5" y="4" width="6" height="2" fill="#844"/>
+                        <rect x="4" y="6" width="8" height="2" fill="#844"/>
+                        <rect x="7" y="8" width="2" height="2" fill="#844"/>
+                        <rect x="5" y="10" width="6" height="2" fill="#844"/>
+                        <rect x="4" y="12" width="3" height="2" fill="#844"/>
+                        <rect x="9" y="12" width="3" height="2" fill="#844"/>
+                    </svg>
+                </div>
+                <div class="character-name">Gambler</div>
+                <div class="character-desc">Unpredictable abilities with high risk and reward. Luck-based powers.</div>
+            </div>
+        </div>
+        
+        <button class="start-button" id="startGameBtn">Start Adventure</button>
+    </div>
+
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <script src="https://cdn.jsdelivr.net/npm/aws-amplify/dist/aws-amplify.min.js"></script>
+    <script>
+        // AWS Authentication Setup
+        const Amplify = window.aws_amplify.Amplify;
+        const Auth = window.aws_amplify.Auth;
+
+        Amplify.configure({
+            Auth: {
+                region: "us-east-2",
+                userPoolId: "us-east-2_Czl1ZsXp1",
+                userPoolWebClientId: "5oer0age0upepjc0m5loutffso"
+            }
+        });
+
+        // DOM Elements
+        const authContainer = document.getElementById('authContainer');
+        const characterSelect = document.getElementById('characterSelect');
+        const form = document.getElementById('authForm');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const confirmPasswordInput = document.getElementById('confirmPassword');
+        const confirmPasswordField = document.getElementById('confirmPasswordField');
+        const message = document.getElementById('message');
+        const formTitle = document.getElementById('formTitle');
+        const submitBtn = document.getElementById('submitBtn');
+        const toggleMode = document.getElementById('toggleMode');
+        const confirmCodeField = document.getElementById('confirmCodeField');
+        const confirmCodeInput = document.getElementById('confirmCode');
+        const confirmCodeBtn = document.getElementById('confirmCodeBtn');
+        const resendCodeBtn = document.getElementById('resendCodeBtn');
+        const characterName = document.getElementById('characterName');
+        const startGameBtn = document.getElementById('startGameBtn');
+        const characterOptions = document.querySelectorAll('.character-option');
+        
+        let isSignUp = false;
+        let selectedClass = null;
+
+        // Hide confirm code section and confirm password field on load
+        confirmCodeField.style.display = 'none';
+        confirmPasswordField.style.display = 'none';
+        resendCodeBtn.style.display = 'none';
+
+        // Authentication Event Listeners
+        toggleMode.addEventListener('click', (e) => {
+            e.preventDefault();
+            isSignUp = !isSignUp;
+            formTitle.textContent = isSignUp ? "Sign Up for Final Quest" : "Login to Final Quest";
+            submitBtn.textContent = isSignUp ? "Sign Up" : "Login";
+            toggleMode.textContent = isSignUp
+                ? "Already have an account? Log in"
+                : "Don't have an account? Sign up";
+
+            confirmPasswordField.style.display = isSignUp ? 'block' : 'none';
+            confirmPasswordInput.required = isSignUp;
+            confirmPasswordInput.disabled = !isSignUp;
+            confirmCodeField.style.display = 'none';
+            resendCodeBtn.style.display = 'none';
+            message.textContent = '';
+
+            if (!isSignUp) {
+                confirmPasswordInput.value = '';
+            }
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            message.textContent = '';
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
+
+            if (isSignUp) {
+                if (password !== confirmPassword) {
+                    message.textContent = "Passwords do not match.";
+                    message.style.color = "red";
+                    return;
+                }
+
+                try {
+                    await Auth.signUp({
+                        username: email,
+                        password,
+                        attributes: { email }
+                    });
+                    message.textContent = "Sign up successful! Please check your email to confirm.";
+                    message.style.color = "green";
+                    confirmCodeField.style.display = 'flex';
+                    resendCodeBtn.style.display = 'block';
+                } catch (err) {
+                    
+                if (err.code === "UserNotConfirmedException") {
+                    message.textContent = "Error: User is not confirmed.";
+                    message.style.color = "red";
+                    confirmCodeField.style.display = 'flex';
+                    resendCodeBtn.style.display = 'block';
+                } else {
+                    message.textContent = "Error: " + err.message;
+                    message.style.color = "red";
+                }
+
+                }
+
+            } else {
+                try {
+                    await Auth.signIn(email, password);
+                    message.textContent = "Login successful!";
+                    message.style.color = "green";
+                    
+                    // Transition to character selection screen
+                    setTimeout(() => {
+                        authContainer.style.display = 'none';
+                        characterSelect.style.display = 'block';
+                    }, 1000);
+                    
+                } catch (err) {
+                    
+                if (err.code === "UserNotConfirmedException") {
+                    message.textContent = "Error: User is not confirmed.";
+                    message.style.color = "red";
+                    confirmCodeField.style.display = 'flex';
+                    resendCodeBtn.style.display = 'block';
+                } else {
+                    message.textContent = "Error: " + err.message;
+                    message.style.color = "red";
+                }
+
+                }
+            }
+        });
+
+        confirmCodeBtn.addEventListener('click', async () => {
+            const email = emailInput.value;
+            const code = confirmCodeInput.value;
+
+            try {
+                await Auth.confirmSignUp(email, code);
+                message.textContent = "Account confirmed! You can now log in.";
+                message.style.color = "green";
+                confirmCodeField.style.display = "none";
+                resendCodeBtn.style.display = 'none';
+                isSignUp = false;
+                formTitle.textContent = "Login to Final Quest";
+                submitBtn.textContent = "Login";
+                toggleMode.textContent = "Don't have an account? Sign up";
+                confirmPasswordField.style.display = 'none';
+            } catch (err) {
+                message.textContent = "Confirmation error: " + err.message;
+                message.style.color = "red";
+            }
+        });
+
+        resendCodeBtn.addEventListener('click', async () => {
+            const email = emailInput.value;
+            message.textContent = 'Resending code...';
+            message.style.color = 'orange';
+            try {
+                await Auth.resendSignUp(email);
+                message.textContent = 'Verification code resent to your email.';
+                message.style.color = 'green';
+            } catch (err) {
+                message.textContent = 'Error resending code: ' + err.message;
+                message.style.color = 'red';
+            }
+        });
+
+        
+const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+const resetPasswordField = document.getElementById('resetPasswordField');
+const resetCodeInput = document.getElementById('resetCode');
+const newPasswordInput = document.getElementById('newPassword');
+const submitNewPasswordBtn = document.getElementById('submitNewPasswordBtn');
+
+// Show forgot password form
+forgotPasswordLink.addEventListener('click', async (e) => {
+    e.preventDefault();
+    const email = emailInput.value.trim();
+    if (!email) {
+        message.textContent = "Please enter your email above first.";
+        message.style.color = "red";
+        return;
+    }
+    try {
+        await Auth.forgotPassword(email);
+        message.textContent = "Reset code sent to your email.";
+        message.style.color = "green";
+        resetPasswordField.style.display = 'flex';
+    } catch (err) {
+        message.textContent = "Error: " + err.message;
+        message.style.color = "red";
+    }
+});
+
+// Submit new password
+submitNewPasswordBtn.addEventListener('click', async () => {
+    const email = emailInput.value.trim();
+    const code = resetCodeInput.value.trim();
+    const newPassword = newPasswordInput.value;
+    try {
+        await Auth.forgotPasswordSubmit(email, code, newPassword);
+        message.textContent = "Password reset successful! You can now log in.";
+        message.style.color = "green";
+        resetPasswordField.style.display = 'none';
+    } catch (err) {
+        message.textContent = "Error: " + err.message;
+        message.style.color = "red";
+    }
+});
+
+
+        // Character Selection Event Listeners
+        characterOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                // Remove selected class from all options
+                characterOptions.forEach(opt => opt.classList.remove('selected'));
+                // Add selected class to clicked option
+                option.classList.add('selected');
+                // Store selected class
+                selectedClass = option.getAttribute('data-class');
+            });
+        });
+
+        startGameBtn.addEventListener('click', () => {
+            const name = characterName.value.trim();
+            
+            if (!name) {
+                alert('Please enter a character name');
+                return;
+            }
+            
+            if (!selectedClass) {
+                alert('Please select a character class');
+                return;
+            }
+            
+            // Hide character selection and show game
+            characterSelect.style.display = 'none';
+            document.getElementById('gameCanvas').style.display = 'block';
+            
+            // Initialize and start the game
+            initializeGame(name, selectedClass);
+        });
+
+        // Game code starts here
+        function initializeGame(playerName, playerClass) {
+            // Import necessary modules for the game
+            import('./TileManager.js').then(({ default: TileManager }) => {
+                import('./KeyHandler.js').then(({ default: KeyHandler }) => {
+                    import('./CollisionChecker.js').then(({ default: CollisionChecker }) => {
+                        import('../config/AssetSetter.js').then(({ default: AssetSetter }) => {
+                            import('./UI.js').then(({ default: UI }) => {
+                                import('./Eventhandler.js').then(({ default: EventHandler }) => {
+                                    import('./Player.js').then(({ default: Player }) => {
+                                        // Now that all modules are loaded, start the game
+                                        const gamePanel = new GamePanel(
+                                            document.getElementById('gameCanvas'), 
+                                            playerName, 
+                                            playerClass
+                                        );
+                                        gamePanel.setUpGame();
+                                        gamePanel.startGameThread();
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
+            }).catch(error => {
+                console.error("Error loading game modules:", error);
+            });
+        }
+
+        class GamePanel {
+            constructor(canvas, playerName, playerClass) {
+                // Store player info
+                this.playerName = playerName || "Hero";
+                this.playerClass = playerClass || "Knight";
+                
+                // SCREEN SETTINGS
+                this.originalTileSize = 16;
+                this.scale = 3;
+                this.tileSize = this.originalTileSize * this.scale;
+                this.maxScreenCol = 40;
+                this.maxScreenRow = 23;
+                this.screenWidth = this.tileSize * this.maxScreenCol;
+                this.screenHeight = this.tileSize * this.maxScreenRow;
+                this.maxMap = 10;
+                this.currentMap = 0;
+
+                // Set canvas size
+                canvas.width = this.screenWidth;
+                canvas.height = this.screenHeight;
+                
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+
+                // Game States - Define states first
+                this.playState = 1;
+                this.pauseState = 2;
+                this.dialogueState = 3;
+                this.gameOverState = 4; // Add game over state
+                
+                // Then set initial state
+                this.gameState = this.playState;
+
+                // Initialize components in correct order
+                this.keyH = new KeyHandler(this);  // Initialize KeyHandler first
+                this.player = new Player(this, this.keyH);  // Then create player
+                
+                // Set player properties based on character creation
+                this.player.name = this.playerName;
+                this.player.characterClass = this.playerClass;
+                
+                // Apply class-specific stats and abilities (this would be defined in Player.js)
+                this.applyClassAttributes();
+                
+                this.tileM = new TileManager(this);
+                this.cChecker = new CollisionChecker(this);
+                this.aSetter = new AssetSetter(this);
+                this.ui = new UI(this);
+                this.eHandler = new EventHandler(this);
+
+                // Initialize arrays
+                this.obj = Array.from({ length: this.maxMap }, () => Array(10).fill(null));
+                this.npc = Array.from({ length: this.maxMap }, () => Array(10).fill(null));
+                this.monster = Array.from({ length: this.maxMap }, () => Array(20).fill(null));
+
+                // Modify timing properties
+                this.FPS = 60;
+                this.deltaTime = 0;
+                this.lastTime = 0;
+                
+                console.log(`Game initialized for ${this.playerName} the ${this.playerClass}`);
+            }
+            
+            applyClassAttributes() {
+                // This would set different attributes based on class choice
+                // Assuming these properties exist in the Player class
+                switch(this.playerClass) {
+                    case "Knight":
+                        this.player.maxLife = 8;
+                        this.player.life = 8;
+                        this.player.strength = 3;
+                        this.player.dexterity = 1;
+                        this.player.attackRange = 1;
+                        break;
+                    case "Mage":
+                        this.player.maxLife = 4;
+                        this.player.life = 4;
+                        this.player.strength = 5;
+                        this.player.dexterity = 2;
+                        this.player.attackRange = 3;
+                        break;
+                    case "Archer":
+                        this.player.maxLife = 5;
+                        this.player.life = 5;
+                        this.player.strength = 2;
+                        this.player.dexterity = 5;
+                        this.player.attackRange = 4;
+                        break;
+                    case "Gambler":
+                        this.player.maxLife = 6;
+                        this.player.life = 6;
+                        this.player.strength = 2;
+                        this.player.dexterity = 3;
+                        this.player.attackRange = 2;
+                        this.player.luck = 5; // Unique stat for Gambler
+                        break;
+                    default:
+                        // Default values
+                        this.player.maxLife = 6;
+                        this.player.life = 6;
+                        this.player.strength = 2;
+                        this.player.dexterity = 2;
+                        this.player.attackRange = 1;
+                }
+            }
+
+            setUpGame() {
+                this.aSetter.setObject();
+                this.aSetter.setNPC();
+                this.aSetter.setMonster();
+                this.gameState = this.playState;
+            }
+
+            startGameThread() {
+                const gameLoop = (currentTime) => {
+                    // Calculate delta time in seconds
+                    this.deltaTime = (currentTime - this.lastTime) / 1000;
+                    this.lastTime = currentTime;
+                    
+                    // Cap delta time to prevent huge jumps
+                    if (this.deltaTime > 0.1) {
+                        this.deltaTime = 0.1;
+                    }
+                    
+                    this.update();
+                    this.draw();
+                    
+                    requestAnimationFrame(gameLoop);
+                };
+                
+                requestAnimationFrame(gameLoop);
+            }
+
+            update() {
+                if (this.gameState === this.playState) {
+                    this.player.update();
+
+                    // Update NPCs
+                    this.npc[this.currentMap]?.forEach(npc => {
+                        if (npc) npc.update();
+                    });
+
+                    // Update Monsters and remove dead ones
+                    this.monster[this.currentMap] = this.monster[this.currentMap].filter(monster => {
+                        if (monster) {
+                            if (monster.alive || monster.dying) {
+                                monster.update();
+                                return true;
+                            }
+                            return false;
+                        }
+                        return false;
+                    });
+                }
+            }
+
+            draw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Draw tiles first
+                this.tileM.draw(this.ctx);
+
+                // Draw objects
+                this.obj[this.currentMap]?.forEach(object => {
+                    if (object) object.draw(this.ctx, this);
+                });
+
+                // Draw NPCs
+                this.npc[this.currentMap]?.forEach(npc => {
+                    if (npc) npc.draw(this.ctx);
+                });
+
+                // Draw Monsters
+                this.monster[this.currentMap]?.forEach(monster => {
+                    if (monster) monster.draw(this.ctx);
+                });
+
+                // Draw Player
+                this.player.draw(this.ctx);
+
+                // Draw UI
+                this.ui.draw(this.ctx);
+            }
+        }
+        
+        // For development/testing: Allow skipping login
+        // Comment this out for production
+        /*
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                authContainer.style.display = 'none';
+                characterSelect.style.display = 'block';
+            }
+        });
+        */
+    </script>
+</body>
+</html>
