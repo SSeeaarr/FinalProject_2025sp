@@ -1,3 +1,4 @@
+// Game Panel
 class GamePanel {
   constructor(canvas) {
     // SCREEN SETTINGS
