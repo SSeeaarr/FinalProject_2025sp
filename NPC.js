@@ -59,6 +59,8 @@ export default class NPC_OldMan {
         this.dialogues = [
             "Hello, young adventurer!",
             "This is a dangerous world...",
+            "I heard rumors that a powerful dragon lies to the east...",
+            "But he is locked behind 4 doors.",
             "Be careful out there!",
             "Press ENTER to continue..."
         ];
