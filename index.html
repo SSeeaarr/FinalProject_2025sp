@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AWS Login/Signup</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column; /* Arrange items vertically */
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 10px; /* Add some space above the toggle link */
+        }
+
+        input {
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 15px;
+            margin-bottom: 12px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+
+        button {
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            background-color: #007bff;
+            color: white;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        a {
+            color: #007bff;
+            text-decoration: none;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        #message {
+            margin-top: 10px; /* Move message below the button/code field */
+            margin-bottom: 10px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        #confirmPasswordField input {
+            width: 100%;
+        }
+
+        #confirmCodeField input {
+            display: 100%;
+        }
+
+        #confirmPasswordField,
+        #confirmCodeField {
+            display: none;
+        }
+
+        #confirmCodeField {
+            margin-top: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #resendCodeBtn {
+            margin-top: 10px;
+            background-color: #6c757d; /* A neutral color */
+        }
+
+        #resendCodeBtn:hover {
+            background-color: #5a6268;
+        }
+
+        #toggleMode {
+            margin-top: auto; /* Push the toggle link to the bottom */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 id="formTitle">Login</h2>
+        <form id="authForm">
+            <input type="email" id="email" name="email" placeholder="Email" required />
+            <input type="password" id="password" name="password" placeholder="Password" required />
+
+            <div id="confirmPasswordField">
+                <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Confirm Password" />
+            </div>
+
+            <button type="submit" id="submitBtn">Login</button>
+
+            <div id="confirmCodeField">
+                <input type="text" id="confirmCode" name="confirmCode" placeholder="Confirmation Code" />
+                <button type="button" id="confirmCodeBtn">Confirm Account</button>
+                <button type="button" id="resendCodeBtn" style="display: none;">Resend Code</button>
+            </div>
+            <p id="message"></p>
+        </form>
+        <a href="#" id="toggleMode">Don't have an account? Sign up</a>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/aws-amplify/dist/aws-amplify.min.js"></script>
+    <script>
+        const Amplify = window.aws_amplify.Amplify;
+        const Auth = window.aws_amplify.Auth;
+
+        Amplify.configure({
+            Auth: {
+                region: "us-east-2",
+                userPoolId: "us-east-2_Czl1ZsXp1",
+                userPoolWebClientId: "5oer0age0upepjc0m5loutffso"
+            },
+            API: {
+                endpoints: [
+                    {
+                        name: "GameAPI",
+                        endpoint: "https://91fbnp0fwe.execute-api.us-east-1.amazonaws.com/dev"
+                    }
+                ]
+            }
+        });
+
+        const form = document.getElementById('authForm');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const confirmPasswordInput = document.getElementById('confirmPassword');
+        const confirmPasswordField = document.getElementById('confirmPasswordField');
+        const message = document.getElementById('message');
+        const formTitle = document.getElementById('formTitle');
+        const submitBtn = document.getElementById('submitBtn');
+        const toggleMode = document.getElementById('toggleMode');
+        const confirmCodeField = document.getElementById('confirmCodeField');
+        const confirmCodeInput = document.getElementById('confirmCode');
+        const confirmCodeBtn = document.getElementById('confirmCodeBtn');
+        const resendCodeBtn = document.getElementById('resendCodeBtn');
+
+        let isSignUp = false;
+
+        // Explicitly hide confirm code section and confirm password field on load
+        confirmCodeField.style.display = 'none';
+        confirmPasswordField.style.display = 'none';
+        resendCodeBtn.style.display = 'none'; // Initially hide the resend button
+
+        toggleMode.addEventListener('click', (e) => {
+            e.preventDefault();
+            isSignUp = !isSignUp;
+            formTitle.textContent = isSignUp ? "Sign Up" : "Login";
+            submitBtn.textContent = isSignUp ? "Sign Up" : "Login";
+            toggleMode.textContent = isSignUp
+                ? "Already have an account? Log in"
+                : "Don't have an account? Sign up";
+
+            confirmPasswordField.style.display = isSignUp ? 'block' : 'none';
+            confirmPasswordInput.required = isSignUp;
+            confirmPasswordInput.disabled = !isSignUp;
+            confirmCodeField.style.display = 'none'; // Hide confirm code field when toggling mode
+            resendCodeBtn.style.display = 'none';   // Hide resend button when toggling mode
+            message.textContent = '';             // Clear any previous messages
+
+            if (!isSignUp) {
+                confirmPasswordInput.value = ''; // Clear the value when going back to login
+            }
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            message.textContent = '';
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
+
+            if (isSignUp) {
+                if (password !== confirmPassword) {
+                    message.textContent = "Passwords do not match.";
+                    message.style.color = "red";
+                    return;
+                }
+
+                try {
+                    await Auth.signUp({
+                        username: email,
+                        password,
+                        attributes: { email }
+                    });
+                    message.textContent = "Sign up successful! Please check your email to confirm.";
+                    message.style.color = "green";
+                    confirmCodeField.style.display = 'flex';
+                    resendCodeBtn.style.display = 'block'; // Show resend button after successful signup
+                } catch (err) {
+                    message.textContent = "Error: " + err.message;
+                    message.style.color = "red";
+                }
+
+            } else {
+                try {
+                    const user = await Auth.signIn(email, password);
+                    message.textContent = "Login successful! Loading your game data...";
+                    message.style.color = "green";
+                    
+                    // Handle successful login
+                    handleSuccessfulLogin(user);
+                } catch (err) {
+                    message.textContent = "Error: " + err.message;
+                    message.style.color = "red";
+                }
+            }
+        });
+
+        confirmCodeBtn.addEventListener('click', async () => {
+            const email = emailInput.value;
+            const code = confirmCodeInput.value;
+
+            try {
+                await Auth.confirmSignUp(email, code);
+                message.textContent = "Account confirmed! Creating your game profile...";
+                message.style.color = "green";
+                
+                // Create player record in DynamoDB after confirming account
+                try {
+                    await createPlayerRecord(email);
+                    message.textContent = "Account confirmed and game profile created! You can now log in.";
+                } catch (dbErr) {
+                    message.textContent = "Account confirmed but we couldn't create your game profile. Please try logging in.";
+                    console.error('DynamoDB error:', dbErr);
+                }
+                
+                confirmCodeField.style.display = "none";
+                resendCodeBtn.style.display = 'none'; // Hide resend button after confirmation
+                isSignUp = false;
+                formTitle.textContent = "Login";
+                submitBtn.textContent = "Login";
+                toggleMode.textContent = "Don't have an account? Sign up";
+                confirmPasswordField.style.display = 'none'; // Ensure confirm password is hidden after confirmation
+            } catch (err) {
+                message.textContent = "Confirmation error: " + err.message;
+                message.style.color = "red";
+            }
+        });
+
+        resendCodeBtn.addEventListener('click', async () => {
+            const email = emailInput.value;
+            message.textContent = 'Resending code...';
+            message.style.color = 'orange';
+            try {
+                await Auth.resendSignUp(email);
+                message.textContent = 'Verification code resent to your email.';
+                message.style.color = 'green';
+            } catch (err) {
+                message.textContent = 'Error resending code: ' + err.message;
+                message.style.color = 'red';
+            }
+        });
+
+        // Create default player data
+        function createDefaultPlayerData(email, username) {
+            return {
+                email: email,
+                username: username || email.split('@')[0], // Use part of email as default username
+                level: 1,
+                class: "knight", // Default class
+                exp: 0,
+                coin: 100,
+                strength: 5,
+                life: 100,
+                dexterity: 5,
+                attack: 5,
+                defense: 5,
+                inventory: JSON.stringify([]) // Empty inventory as a string
+            };
+        }
+
+        // Create a new player record in DynamoDB
+        async function createPlayerRecord(email, username) {
+            try {
+                const playerData = createDefaultPlayerData(email, username);
+                
+                // Call your API Gateway endpoint that connects to DynamoDB
+                const response = await fetch('https://91fbnp0fwe.execute-api.us-east-1.amazonaws.com/dev/players', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${(await Auth.currentSession()).getIdToken().getJwtToken()}`
+                    },
+                    body: JSON.stringify(playerData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to create player record');
+                }
+                 
+                return await response.json();
+            } catch (error) {
+                console.error('Error creating player record:', error);
+                throw error;
+            }
+        }
+
+        // Get player data from DynamoDB
+        async function getPlayerData(email) {
+            try {
+                // Call your API Gateway endpoint that connects to DynamoDB
+                const response = await fetch(`https://91fbnp0fwe.execute-api.us-east-1.amazonaws.com/dev/players/{email}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${(await Auth.currentSession()).getIdToken().getJwtToken()}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to retrieve player data');
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('Error retrieving player data:', error);
+                throw error;
+            }
+        }
+
+        // Navigate to the game with player data
+        function navigateToGame(playerData) {
+            // Store player data in session storage
+            sessionStorage.setItem('playerData', JSON.stringify(playerData));
+            
+            // Redirect to the game page
+            window.location.href = './game.html'; // Adjust path as needed
+        }
+
+        // Handle successful login
+        async function handleSuccessfulLogin(user) {
+            // Create default player data if none exists
+            try {
+        // Try to get user's saved data
+        const Auth = window.aws_amplify.Auth;
+        const user = await Auth.currentAuthenticatedUser();
+        const token = user.signInUserSession.idToken.jwtToken;
+        const username = user.username;
+    
+    // Try to fetch player data from API
+        const response = await fetch(`https://91fbnp0fwe.execute-api.us-east-1.amazonaws.com/dev/players/${username}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+    
+    if (response.ok) {
+        // If data exists, store it in session
+        const playerData = await response.json();
+        sessionStorage.setItem('playerData', JSON.stringify(playerData));
+        console.log("Loaded saved player data:", playerData);
+    } else if (response.status === 404) {
+        // No saved data exists yet, create new player data
+        const newPlayerData = {
+            username: username,
+            level: 1,
+            class: "knight", // Default class
+            // Add other default properties
+        };
+        sessionStorage.setItem('playerData', JSON.stringify(newPlayerData));
+        console.log("Created new player data:", newPlayerData);
+    }
+    
+    // Redirect to game
+    window.location.href = './game.html';
+    
+        } catch (error) {
+        console.error("Error getting player data:", error);
+        // Still redirect but will start with new character
+        window.location.href = './game.html';
+        }
+    }
+    </script>
+
+</body>
+</html>

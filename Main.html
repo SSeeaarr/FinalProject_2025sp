@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPG Adventure</title>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1127.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aws-amplify/dist/aws-amplify.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #000;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            border: 1px solid #333;
+            z-index: 1; /* Make sure canvas is above loading screen */
+        }
+        #loading {
+            position: absolute;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 24px;
+            z-index: 10; /* Higher z-index to be above canvas initially */
+            background-color: rgba(0,0,0,0.8); /* Semi-transparent background */
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s ease-out; /* Smooth fade-out */
+        }
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">Loading game...</div>
+    <canvas id="gameCanvas"></canvas>
+    
+    <script type="module" src="./game.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM ready, waiting for game initialization...");
+            
+            // Get reference to elements
+            const loadingDiv = document.getElementById('loading');
+            const canvas = document.getElementById('gameCanvas');
+            
+            // First, make sure canvas is visible
+            if (canvas) {
+                canvas.style.display = 'block';
+            }
+            
+            // Force hide loading after a timeout (backup)
+            setTimeout(() => {
+                console.log("Timeout reached, forcing loading screen to hide");
+                if (loadingDiv) {
+                    loadingDiv.classList.add('hidden');
+                    // Complete removal after transition
+                    setTimeout(() => {
+                        loadingDiv.style.display = 'none';
+                    }, 500);
+                }
+            }, 5000); // 5 second fallback
+            
+            // Listen for game loaded event
+            window.addEventListener('gameLoaded', () => {
+                console.log("Game loaded event received, hiding loading screen");
+                if (loadingDiv) {
+                    loadingDiv.classList.add('hidden');
+                    // Complete removal after transition
+                    setTimeout(() => {
+                        loadingDiv.style.display = 'none';
+                    }, 500);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
