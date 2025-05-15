@@ -19,13 +19,29 @@ export default class SuperObject {
 
     draw(ctx, gp) {
         if (this.image && this.image.complete) {
+            // Use the object's custom dimensions if defined
+            const width = this.width || gp.tileSize;
+            const height = this.height || gp.tileSize;
+            
+            // For tall objects like trees:
+            // 1. Center horizontally on the tile
+            // 2. Position the bottom of the object at the base tile position
+            const xOffset = (width - gp.tileSize) / 2;
+            const yOffset = height - gp.tileSize;
+            
             ctx.drawImage(
                 this.image, 
-                this.x,      // Use actual pixel coordinates 
-                this.y,      // Use actual pixel coordinates
-                gp.tileSize, 
-                gp.tileSize
+                this.x - xOffset,  // Center wider objects
+                this.y - yOffset,  // Make tall objects grow upward from base
+                width, 
+                height
             );
+            
+            // Uncomment for debugging hitboxes
+            /*
+            ctx.strokeStyle = 'red';
+            ctx.strokeRect(this.x, this.y, gp.tileSize, gp.tileSize);
+            */
         }
     }
 }
