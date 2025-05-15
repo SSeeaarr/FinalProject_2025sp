@@ -11,6 +11,10 @@ export default class KeyHandler {
         this.leftPressed = false;
         this.rightPressed = false;
         this.attackPressed = false;
+        this.qPressed = false;
+        this.ePressed = false; // Add this for dash
+        this.rPressed = false; // Add for triple shot
+        this.tPressed = false; // Add for Roll the Dice ability
         
         document.addEventListener('keydown', this.onKeyDown.bind(this));
         document.addEventListener('keyup', this.onKeyUp.bind(this));
@@ -43,6 +47,19 @@ export default class KeyHandler {
             // No inventory toggling in pause state
             // Remove the 'KeyC' handling here
         }
+
+        if (e.key === '"' || e.key === "'") {
+            this.qPressed = true;
+        }
+        if (e.key === 'e' || e.key === 'E') {
+            this.ePressed = true;
+        }
+        if (e.key === 'r' || e.key === 'R') {
+            this.rPressed = true;
+        }
+        if (e.key === 't' || e.key === 'T') {
+            this.tPressed = true;
+        }
     }
 
     onKeyUp(e) {
@@ -52,6 +69,19 @@ export default class KeyHandler {
             
             // Note: We're no longer checking if the inventory is open here
             // This ensures key releases are registered even when in the inventory
+        }
+
+        if (e.key === '"' || e.key === "'") {
+            this.qPressed = false;
+        }
+        if (e.key === 'e' || e.key === 'E') {
+            this.ePressed = false;
+        }
+        if (e.key === 'r' || e.key === 'R') {
+            this.rPressed = false;
+        }
+        if (e.key === 't' || e.key === 'T') {
+            this.tPressed = false;
         }
     }
 

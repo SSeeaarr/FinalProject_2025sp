@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPG Adventure Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #000;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            border: 1px solid #333;
+        }
+        #loading {
+            position: absolute;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 24px;
+            text-align: center;
+        }
+        #gameControls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            margin-left: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+    <!-- Include AWS SDK -->
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1127.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aws-amplify/dist/aws-amplify.min.js"></script>
+</head>
+<body>
+    <div id="loading">Loading game...</div>
+    <div id="gameControls">
+        <button id="saveButton">Save Game</button>
+        <button id="logoutButton">Logout</button>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="debugInfo" style="position: absolute; bottom: 10px; left: 10px; color: white; font-family: monospace;"></div>
+
+    <script type="module" src="./game.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const debugElement = document.getElementById('debugInfo');
+            
+            // Check if player is logged in
+            const playerData = sessionStorage.getItem('playerData');
+            if (playerData) {
+                const data = JSON.parse(playerData);
+                debugElement.innerHTML = `Player: ${data.username}, Level: ${data.level}, Class: ${data.class}`;
+            } else {
+                debugElement.innerHTML = "No player data found";
+                window.location.href = './auth.html';
+                return;
+            }
+            
+            // Hide loading message when game is ready
+            window.addEventListener('gameLoaded', () => {
+                document.getElementById('loading').style.display = 'none';
+            });
+            
+            // Set up save button
+            document.getElementById('saveButton').addEventListener('click', () => {
+                const gameInstance = window.gameInstance;
+                if (gameInstance && gameInstance.saveGame) {
+                    gameInstance.saveGame();
+                }
+            });
+            
+            // Set up logout button
+            document.getElementById('logoutButton').addEventListener('click', async () => {
+                try {
+                    const Auth = window.aws_amplify.Auth;
+                    await Auth.signOut();
+                    sessionStorage.removeItem('playerData');
+                    window.location.href = './auth.html';
+                } catch (error) {
+                    console.error("Error signing out:", error);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

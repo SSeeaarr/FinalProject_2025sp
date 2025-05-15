@@ -6,12 +6,13 @@ export default class MON_Troll extends Monster {
         
         this.canBeKnockedBack = false;
         this.name = "Troll";
-        this.baseSpeed = 10; // pixels per second
-        this.maxLife = 51;
+        this.baseSpeed = 200; // pixels per second
+        this.maxLife = 4;
         this.life = this.maxLife;
+        this.damage = 5;
         
         // Set movement type to random with custom timing
-        this.movementType = 'random';
+        this.movementType = 'chase';
         this.directionChangeInterval = 1.5; // Change direction every 1.5 seconds
         
         this.spriteCounter = 0;

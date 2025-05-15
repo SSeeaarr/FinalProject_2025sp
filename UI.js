@@ -168,15 +168,46 @@ export default class UI {
     }
 
     drawGameOverScreen(ctx) {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-        ctx.fillRect(0, 0, this.gp.screenWidth, this.gp.screenHeight);
-
+        // Fix 1: Get canvas dimensions directly instead of using calculated values
+        const canvasWidth = this.gp.canvas.width;
+        const canvasHeight = this.gp.canvas.height;
+        
+        // Fix 2: Clear any transformations that might affect positioning
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        
+        // Fix 3: Draw overlay using actual canvas dimensions
+        ctx.fillStyle = "rgba(0, 0, 0, 0.85)"; // Darker for better visibility
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        // Fix 4: Calculate center based on actual canvas dimensions
+        const centerX = canvasWidth / 2;
+        const centerY = canvasHeight / 2;
+        
+        // Fix 5: Size text proportionally to the actual canvas
+        const titleSize = Math.min(canvasWidth, canvasHeight) * 0.1; // 10% of screen
+        const subtitleSize = titleSize * 0.5;
+        
+        // Draw title with improved positioning
         ctx.fillStyle = "white";
-        ctx.font = "96px Arial";
-        const text = "Game Over";
-        const x = this.getXForCenteredText(ctx, text);
-        const y = this.gp.screenHeight / 2;
-        ctx.fillText(text, x, y);
+        ctx.font = `bold ${titleSize}px Arial`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle"; // This ensures vertical centering
+        
+        // Position Game Over text exactly at center
+        ctx.fillText("Game Over", centerX, centerY - titleSize * 0.5);
+        
+        // Draw stats with consistent spacing
+        ctx.font = `${subtitleSize}px Arial`;
+        const player = this.gp.player;
+        ctx.fillText(`Level: ${player.level}   Coins: ${player.coin}`, centerX, centerY + titleSize * 0.5);
+        
+        // Draw class info
+        ctx.font = `${subtitleSize * 0.8}px Arial`;
+        ctx.fillText(`Class: ${player.characterClass}`, centerX, centerY + titleSize);
+        
+        // Reset text alignment for other UI elements
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
     }
 
     drawSubWindow(ctx, x, y, width, height) {
@@ -284,14 +315,45 @@ export default class UI {
             if (i < this.gp.player.inventory.length) {
                 const item = this.gp.player.inventory[i];
                 
-                // Highlight equipped items
-                if (item === this.gp.player.currentWeapon || item === this.gp.player.currentArmor) {
-                    ctx.fillStyle = "rgba(240, 190, 90, 0.5)";
-                    ctx.fillRect(x, y, slotSize, slotSize);
-                }
-
-                if (item.image && item.image.complete) {
-                    ctx.drawImage(item.image, x, y, slotSize, slotSize);
+                // Add this safety check before trying to draw the image
+                if (item) {
+                    // Safety check for image before drawing
+                    try {
+                        // Only draw if image exists, has loaded, and is not broken
+                        if (item.image && 
+                            item.image.complete && 
+                            item.image.naturalWidth !== 0) {
+                            ctx.drawImage(item.image, x, y, slotSize, slotSize);
+                        } else {
+                            // Draw placeholder for items with missing/broken images
+                            ctx.fillStyle = "rgba(100, 100, 100, 0.5)";
+                            ctx.fillRect(x, y, slotSize, slotSize);
+                            
+                            // Draw item name
+                            const shortName = item.name ? item.name.substring(0, 3) : "???";
+                            ctx.fillStyle = "white";
+                            ctx.font = "12px Arial";
+                            ctx.textAlign = "center";
+                            ctx.textBaseline = "middle";
+                            ctx.fillText(shortName, x + slotSize/2, y + slotSize/2);
+                        }
+                        
+                        // If item is equipped, add highlight
+                        if (item === this.gp.player.currentWeapon || item === this.gp.player.currentArmor) {
+                            ctx.strokeStyle = "gold";
+                            ctx.lineWidth = 2;
+                            ctx.strokeRect(x, y, slotSize, slotSize);
+                        }
+                    } catch (error) {
+                        // If any error occurs, draw a fallback
+                        console.error(`Error drawing inventory item at slot ${i}:`, error);
+                        ctx.fillStyle = "red";
+                        ctx.fillRect(x + 5, y + 5, slotSize - 10, slotSize - 10);
+                    }
+                } else {
+                    // Draw empty slot
+                    ctx.strokeStyle = "#666";
+                    ctx.strokeRect(x, y, slotSize, slotSize);
                 }
             }
 
@@ -319,6 +381,9 @@ export default class UI {
     }
 
     drawItemDescription(ctx, item, x, y, width, height, scale) {
+        // Add safety check at the beginning
+        if (!item) return;
+        
         // Set up text properties for calculations
         ctx.font = `${16 * scale}px Arial`;
         const maxWidth = width - 30;
@@ -536,5 +601,53 @@ export default class UI {
                 }
             }
         }
+    }
+
+    drawCharacterScreen() {
+        // Draw stats
+        g.fillText("Level: " + this.gp.player.level, x, y); y += lineHeight;
+        g.fillText("Life: " + this.gp.player.life + "/" + this.gp.player.maxLife, x, y); y += lineHeight;
+        g.fillText("Strength: " + this.gp.player.strength, x, y); y += lineHeight;
+        g.fillText("Dexterity: " + this.gp.player.dexterity, x, y); y += lineHeight;
+        g.fillText("Attack: " + this.gp.player.attack, x, y); y += lineHeight;
+        g.fillText("Defense: " + this.gp.player.defense, x, y); y += lineHeight;
+        g.fillText("Exp: " + this.gp.player.exp + "/" + this.gp.player.nextLevelExp, x, y); y += lineHeight;
+        g.fillText("Coin: " + this.gp.player.coin, x, y); y += lineHeight;
+    }
+
+    // Add this method to your UI class
+    drawClassSelection() {
+        const ctx = this.gp.ctx;
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, this.gp.screenWidth, this.gp.screenHeight);
+        
+        ctx.fillStyle = "white";
+        ctx.font = "30px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("Select Your Class", this.gp.screenWidth/2, 100);
+        
+        // Draw class options with descriptions
+        this.drawClassOption("Mage", "Wields powerful fireballs", this.gp.screenWidth/2, 200);
+        this.drawClassOption("Knight", "Dash through enemies", this.gp.screenWidth/2, 300);
+        this.drawClassOption("Archer", "Unleash triple arrow shots", this.gp.screenWidth/2, 400);
+        this.drawClassOption("Gambler", "Roll the dice for random effects", this.gp.screenWidth/2, 500);
+        
+        // Instructions
+        ctx.font = "20px Arial";
+        ctx.fillText("Click to select", this.gp.screenWidth/2, 600);
+    }
+
+    drawClassOption(className, description, x, y) {
+        const ctx = this.gp.ctx;
+        
+        // Draw class name
+        ctx.font = "24px Arial";
+        ctx.fillStyle = "white";
+        ctx.fillText(className, x, y);
+        
+        // Draw description
+        ctx.font = "16px Arial";
+        ctx.fillStyle = "lightgray";
+        ctx.fillText(description, x, y + 30);
     }
 }

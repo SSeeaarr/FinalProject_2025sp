@@ -1,11 +1,11 @@
 import Monster from './Monster.js';
 
-export default class MON_GreenSlime extends Monster {
+export default class MON_BlueSlime extends Monster {
     constructor(gp) {
         super(gp);
         
         this.canBeKnockedBack = false;
-        this.name = "Green Slime";
+        this.name = "Blue Slime";
         this.baseSpeed = 80; // pixels per second
         this.maxLife = 4;
         this.life = this.maxLife;
@@ -57,7 +57,7 @@ export default class MON_GreenSlime extends Monster {
 
     loadFrame(frameName) {
         const img = new Image();
-        img.src = `./res/monster/Slime_${frameName}.png`;
+        img.src = `./res/monster/bSlime_${frameName}.png`;
         return img;
     }
 

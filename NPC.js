@@ -15,8 +15,8 @@ export default class NPC_OldMan {
         this.solidArea = {
             x: 8,      // Small offset from left edge
             y: 16,     // Positioned closer to feet
-            width: 16, // Narrower than full sprite
-            height: 16 // Shorter, focused on lower body
+            width: 32, // Narrower than full sprite
+            height: 32 // Shorter, focused on lower body
         };
         this.solidAreaDefaultX = this.solidArea.x;
         this.solidAreaDefaultY = this.solidArea.y;
@@ -57,12 +57,11 @@ export default class NPC_OldMan {
 
     setDialogues() {
         this.dialogues = [
-            "Hello, young adventurer!",
-            "This is a dangerous world...",
-            "I heard rumors that a powerful dragon lies to the east...",
-            "But he is locked behind 4 doors.",
-            "Be careful out there!",
-            "Press ENTER to continue..."
+            "Hello, young adventurer! Allow me to serenade your ears with this interesting tidbit! There is an old legend about an amazing treasure hidden away in our land!",
+            "They say to get your hands on this legendary treasure, you must gather 4 colored keys and enter the temple to the east.",
+            "Where are the keys? Who knows! Har har har... Okay fine I do know.  One is to the west, one is south west, one is deep south east and the other to the south!",
+            "Now get the hell out of my face",
+            ""
         ];
     }
 
@@ -88,7 +87,7 @@ export default class NPC_OldMan {
         
         if (this.actionLockCounter >= 2) { // Every 2 seconds
             // 20% chance to start moving if stopped, or stop if moving
-            if (Math.random() < 0.2) {
+            if (Math.random() < 0.5) {
                 this.moving = !this.moving;
             }
             

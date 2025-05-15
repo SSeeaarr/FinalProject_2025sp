@@ -1,0 +1,35 @@
+export const TILE_TYPES = {
+    GRASS: 0,
+    BRICKS: 1,
+    WATER: 2,
+    EARTH: 3,
+    TREE: 4,
+    SAND: 5,
+    SNOW: 6,
+    ICE: 7,
+    STONE_PATH: 8,
+    DIRT: 9,
+    ICE_PATH: 10,
+    ICE_CUBE: 11,
+    MISC: 12,
+    MISC2: 13,
+    MISC3: 14,
+    MISC4: 15,
+    MISC5: 16,
+    MISC6: 17,
+    BEACHSAND: 18,
+    BEACHWATERDCRAB: 19,
+    BEACHWATERD: 20,
+    BEACHWATERU: 21,
+    BEACHWATERL: 22,
+    BEACHWATERR: 23,
+    BEACHSTAR: 24,
+    BEACHSANDCO: 25,
+
+};
+export const COLLISION_TILES = [
+    TILE_TYPES.WATER,
+    TILE_TYPES.WALL,
+    TILE_TYPES.TREE,
+    // Add other collision tile types
+];

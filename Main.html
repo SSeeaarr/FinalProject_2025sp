@@ -2,180 +2,88 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>2D Adventure</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPG Adventure</title>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1127.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aws-amplify/dist/aws-amplify.min.js"></script>
     <style>
-        html, body {
+        body {
             margin: 0;
             padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #000;
             overflow: hidden;
+        }
+        canvas {
+            display: block;
+            border: 1px solid #333;
+            z-index: 1; /* Make sure canvas is above loading screen */
+        }
+        #loading {
+            position: absolute;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 24px;
+            z-index: 10; /* Higher z-index to be above canvas initially */
+            background-color: rgba(0,0,0,0.8); /* Semi-transparent background */
+            width: 100%;
             height: 100%;
             display: flex;
             justify-content: center;
             align-items: center;
-            background-color: #000;
+            transition: opacity 0.5s ease-out; /* Smooth fade-out */
         }
-        canvas {
-            display: block;
-            margin: auto;
-            background-color: #000;
-            max-width: 100%;
-            max-height: 100vh;
-            width: auto;
-            height: auto;
-            object-fit: contain;
-            
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
-
-<canvas id="gameCanvas"></canvas>
-
-<script type="module">
-    import TileManager from './TileManager.js';
-    import KeyHandler from './KeyHandler.js';
-    import CollisionChecker from './CollisionChecker.js';
-    import AssetSetter from '../config/AssetSetter.js';
-    import UI from './UI.js';
-    import EventHandler from './Eventhandler.js';
-    import Player from './Player.js';
-
-    class GamePanel {
-        constructor(canvas) {
-            // SCREEN SETTINGS
-            this.originalTileSize = 16;
-            this.scale = 3;
-            this.tileSize = this.originalTileSize * this.scale;
-            this.maxScreenCol = 40;
-            this.maxScreenRow = 23;
-            this.screenWidth = this.tileSize * this.maxScreenCol;
-            this.screenHeight = this.tileSize * this.maxScreenRow;
-            this.maxMap = 10;
-            this.currentMap = 0;
-
-            // Set canvas size
-            canvas.width = this.screenWidth;
-            canvas.height = this.screenHeight;
+    <div id="loading">Loading game...</div>
+    <canvas id="gameCanvas"></canvas>
+    
+    <script type="module" src="./game.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM ready, waiting for game initialization...");
             
-            this.canvas = canvas;
-            this.ctx = canvas.getContext('2d');
-
-            // Game States - Define states first
-            this.playState = 1;
-            this.pauseState = 2;
-            this.dialogueState = 3;
-            this.gameOverState = 4; // Add game over state
+            // Get reference to elements
+            const loadingDiv = document.getElementById('loading');
+            const canvas = document.getElementById('gameCanvas');
             
-            // Then set initial state
-            this.gameState = this.playState;
-
-            // Initialize components in correct order
-            this.keyH = new KeyHandler(this);  // Initialize KeyHandler first
-            this.player = new Player(this, this.keyH);  // Then create player
-            this.tileM = new TileManager(this);
-            this.cChecker = new CollisionChecker(this);
-            this.aSetter = new AssetSetter(this);
-            this.ui = new UI(this);
-            this.eHandler = new EventHandler(this);
-
-            // Initialize arrays
-            this.obj = Array.from({ length: this.maxMap }, () => Array(10).fill(null));
-            this.npc = Array.from({ length: this.maxMap }, () => Array(10).fill(null));
-            this.monster = Array.from({ length: this.maxMap }, () => Array(20).fill(null));
-
-            // Modify timing properties
-            this.FPS = 60;
-            this.deltaTime = 0;
-            this.lastTime = 0;
-        }
-
-        setUpGame() {
-            this.aSetter.setObject();
-            this.aSetter.setNPC();
-            this.aSetter.setMonster();
-            this.gameState = this.playState;
-        }
-
-        startGameThread() {
-            const gameLoop = (currentTime) => {
-                // Calculate delta time in seconds
-                this.deltaTime = (currentTime - this.lastTime) / 1000;
-                this.lastTime = currentTime;
-                
-                // Cap delta time to prevent huge jumps
-                if (this.deltaTime > 0.1) {
-                    this.deltaTime = 0.1;
-                }
-                
-                this.update();
-                this.draw();
-                
-                requestAnimationFrame(gameLoop);
-            };
-            
-            requestAnimationFrame(gameLoop);
-        }
-
-        update() {
-            if (this.gameState === this.playState) {
-                this.player.update();
-
-                // Update NPCs
-                this.npc[this.currentMap]?.forEach(npc => {
-                    if (npc) npc.update();
-                });
-
-                // Update Monsters and remove dead ones
-                this.monster[this.currentMap] = this.monster[this.currentMap].filter(monster => {
-                    if (monster) {
-                        if (monster.alive || monster.dying) {
-                            monster.update();
-                            return true;
-                        }
-                        return false;
-                    }
-                    return false;
-                });
+            // First, make sure canvas is visible
+            if (canvas) {
+                canvas.style.display = 'block';
             }
-        }
-
-        draw() {
-            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-            // Draw tiles first
-            this.tileM.draw(this.ctx);
-
-            // Draw objects
-            this.obj[this.currentMap]?.forEach(object => {
-                if (object) object.draw(this.ctx, this);
+            
+            // Force hide loading after a timeout (backup)
+            setTimeout(() => {
+                console.log("Timeout reached, forcing loading screen to hide");
+                if (loadingDiv) {
+                    loadingDiv.classList.add('hidden');
+                    // Complete removal after transition
+                    setTimeout(() => {
+                        loadingDiv.style.display = 'none';
+                    }, 500);
+                }
+            }, 5000); // 5 second fallback
+            
+            // Listen for game loaded event
+            window.addEventListener('gameLoaded', () => {
+                console.log("Game loaded event received, hiding loading screen");
+                if (loadingDiv) {
+                    loadingDiv.classList.add('hidden');
+                    // Complete removal after transition
+                    setTimeout(() => {
+                        loadingDiv.style.display = 'none';
+                    }, 500);
+                }
             });
-
-            // Draw NPCs
-            this.npc[this.currentMap]?.forEach(npc => {
-                if (npc) npc.draw(this.ctx);
-            });
-
-            // Draw Monsters
-            this.monster[this.currentMap]?.forEach(monster => {
-                if (monster) monster.draw(this.ctx);
-            });
-
-            // Draw Player
-            this.player.draw(this.ctx);
-
-            // Draw UI
-            this.ui.draw(this.ctx);
-        }
-    }
-
-    // Main
-    window.addEventListener('DOMContentLoaded', () => {
-        const canvas = document.getElementById('gameCanvas');
-        const gamePanel = new GamePanel(canvas);
-        gamePanel.setUpGame();
-        gamePanel.startGameThread();
-    });
-</script>
-
+        });
+    </script>
 </body>
 </html>

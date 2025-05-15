@@ -4,6 +4,7 @@ export default class CollisionChecker {
   }
 
   checkTile(entity) {
+     // <--- ADD THIS LOG
     const entityLeftX = entity.x + entity.solidArea.x;
     const entityRightX = entity.x + entity.solidArea.x + entity.solidArea.width;
     const entityTopY = entity.y + entity.solidArea.y;
@@ -100,85 +101,89 @@ export default class CollisionChecker {
   checkEntity(entity, target) {
     let index = 999;
     const currentMapTarget = target[entity.gp.currentMap];
-    
+
     if (!currentMapTarget) return index;
-    
+
+    // **ADD THIS CHECK AT THE BEGINNING:**
+    if (entity === this.gp.player && entity.invincible) {
+        return index; // If the player is invincible, don't check collision with targets
+    }
+
     for (let i = 0; i < currentMapTarget.length; i++) {
-        if (currentMapTarget[i] == null) continue;
-        
-        // Get entity's solid area position
+        const targetEntity = currentMapTarget[i];
+        if (!targetEntity) continue;
+
         let entityLeft = entity.x + entity.solidArea.x;
         let entityRight = entity.x + entity.solidArea.x + entity.solidArea.width;
         let entityTop = entity.y + entity.solidArea.y;
         let entityBottom = entity.y + entity.solidArea.y + entity.solidArea.height;
-        
-        // Get target's solid area position
-        let targetLeft = currentMapTarget[i].x + currentMapTarget[i].solidArea.x;
-        let targetRight = currentMapTarget[i].x + currentMapTarget[i].solidArea.x + currentMapTarget[i].solidArea.width;
-        let targetTop = currentMapTarget[i].y + currentMapTarget[i].solidArea.y;
-        let targetBottom = currentMapTarget[i].y + currentMapTarget[i].solidArea.y + currentMapTarget[i].solidArea.height;
-        
-        // Standard collision detection
-        if (entityRight > targetLeft && 
-            entityLeft < targetRight && 
-            entityBottom > targetTop && 
+
+        let targetLeft = targetEntity.x + targetEntity.solidArea.x;
+        let targetRight = targetEntity.x + targetEntity.solidArea.x + targetEntity.solidArea.width;
+        let targetTop = targetEntity.y + targetEntity.solidArea.y;
+        let targetBottom = targetEntity.y + targetEntity.solidArea.y + targetEntity.solidArea.height;
+
+        if (entityRight > targetLeft &&
+            entityLeft < targetRight &&
+            entityBottom > targetTop &&
             entityTop < targetBottom) {
-            
-            // THIS IS THE KEY CHANGE: Only set collision if the target has it enabled
-            if (currentMapTarget[i].collision === true) {
+
+            if (targetEntity.collision === true) {
                 entity.collisionOn = true;
             }
-            
-            // For player, always return the index for interaction purposes
-            if (entity === entity.gp.player) {
+
+            if (entity === this.gp.player) {
                 index = i;
             }
         }
     }
-    
+
     return index;
-  }
+}
 
   checkPlayer(entity) {
     let contactPlayer = false;
 
     const entityNext = {
-      x: entity.x + entity.solidAreaDefaultX,
-      y: entity.y + entity.solidAreaDefaultY,
-      width: entity.solidArea.width,
-      height: entity.solidArea.height,
+        x: entity.x + entity.solidAreaDefaultX,
+        y: entity.y + entity.solidAreaDefaultY,
+        width: entity.solidArea.width,
+        height: entity.solidArea.height,
     };
 
     switch (entity.direction) {
-      case "up":
-        entityNext.y -= entity.speed;
-        break;
-      case "down":
-        entityNext.y += entity.speed;
-        break;
-      case "left":
-        entityNext.x -= entity.speed;
-        break;
-      case "right":
-        entityNext.x += entity.speed;
-        break;
+        case "up":
+            entityNext.y -= entity.speed;
+            break;
+        case "down":
+            entityNext.y += entity.speed;
+            break;
+        case "left":
+            entityNext.x -= entity.speed;
+            break;
+        case "right":
+            entityNext.x += entity.speed;
+            break;
     }
 
     const player = this.gp.player;
     const playerArea = {
-      x: player.x + player.solidAreaDefaultX,
-      y: player.y + player.solidAreaDefaultY,
-      width: player.solidArea.width,
-      height: player.solidArea.height,
+        x: player.x + player.solidAreaDefaultX,
+        y: player.y + player.solidAreaDefaultY,
+        width: player.solidArea.width,
+        height: player.solidArea.height,
     };
 
-    if (this._rectIntersect(entityNext, playerArea)) {
-      entity.collisionOn = true;
-      contactPlayer = true;
+    // **ADD THIS CHECK:**
+    if (!player.invincible) {
+        if (this._rectIntersect(entityNext, playerArea)) {
+            entity.collisionOn = true;
+            contactPlayer = true;
+        }
     }
 
     return contactPlayer;
-  }
+}
 
   // Utility method for rectangular intersection
   _rectIntersect(r1, r2) {

@@ -6,12 +6,13 @@ export default class MON_Spider extends Monster {
         
         this.canBeKnockedBack = false;
         this.name = "Spider";
-        this.baseSpeed = 75; // pixels per second
-        this.maxLife = 52;
+        this.baseSpeed = 300; // pixels per second
+        this.maxLife = 15;
         this.life = this.maxLife;
+        this.damage = 20
         
         // Set movement type to random with custom timing
-        this.movementType = 'random';
+        this.movementType = 'chase';
         this.directionChangeInterval = 1.5; // Change direction every 1.5 seconds
         
         this.spriteCounter = 0;

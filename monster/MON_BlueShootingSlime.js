@@ -1,25 +1,26 @@
 import Monster from './Monster.js';
 
-export default class MON_Boss extends Monster {
+export default class MON_BlueShootingSlime extends Monster {
     constructor(gp) {
         super(gp);
 
         // Make shooting slime immune to knockback
         this.canBeKnockedBack = false;
-        this.name = "Boss";
-        this.baseSpeed = 72; // Speed in pixels per second
-        this.maxLife = 75;
-        this.life = this.maxLife;
 
+        this.name = "Blue Shooting Slime";
+        this.baseSpeed = 50; // Speed in pixels per second
+        this.maxLife = 6;
+        this.life = this.maxLife;
+        
         // Set movement type to chase player
         this.movementType = 'chase';
         
         // Projectile properties
         this.projectiles = [];
-        this.shootCooldown = 2;
-        this.shootTimer = 120;
-        this.projectileCount = 12;
-        this.projectileSpread = Math.PI * 4;
+        this.shootCooldown = 1.5;
+        this.shootTimer = 0;
+        this.projectileCount = 3;
+        this.projectileSpread = Math.PI / 4;
 
         // Animation properties
         this.spriteCounter = 0;
@@ -28,8 +29,8 @@ export default class MON_Boss extends Monster {
         this.loadImages();
 
         // Set custom rewards
-        this.exp = 10;
-        this.coins = 10;
+        this.exp = 4;
+        this.coins = 3;
 
         // Death animation properties
         this.dyingDuration = 0.5;
@@ -60,7 +61,7 @@ export default class MON_Boss extends Monster {
 
     loadFrame(frameName) {
         const img = new Image();
-        img.src = `./res/monster/Boss_${frameName}.png`;
+        img.src = `./res/monster/bSlime_${frameName}.png`;
         return img;
     }
 

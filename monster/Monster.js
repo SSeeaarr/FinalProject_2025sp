@@ -10,6 +10,7 @@ export default class Monster {
         this.alive = true;
         this.dying = false;
         this.direction = "down";
+        this.scale = 1.0; // Default scale (1.0 = original size)
         this.solidArea = {
             x: 3,
             y: 18,
@@ -30,6 +31,7 @@ export default class Monster {
 
         this.baseSpeed = 80; // pixels per second (slower than NPC)
         this.moving = true; // Monsters are always moving by default
+        this.damage = 1;
 
         // Add reward properties
         this.exp = 1;       // Default XP reward
@@ -70,13 +72,21 @@ export default class Monster {
                 ctx.globalAlpha = 1.0; // Full visibility normally
             }
 
-            // Draw the current frame
+            // Calculate scaled dimensions
+            const scaledWidth = this.gp.tileSize * this.scale;
+            const scaledHeight = this.gp.tileSize * this.scale;
+            
+            // Adjust position to keep the monster centered
+            const offsetX = (scaledWidth - this.gp.tileSize) / 2;
+            const offsetY = (scaledHeight - this.gp.tileSize) / 2;
+
+            // Draw the current frame with scale applied
             ctx.drawImage(
                 this.currentImage,
-                this.x,
-                this.y,
-                this.gp.tileSize,
-                this.gp.tileSize
+                this.x - offsetX,
+                this.y - offsetY,
+                scaledWidth,
+                scaledHeight
             );
 
             // Reset transparency
@@ -241,7 +251,9 @@ export default class Monster {
         const dy = this.gp.player.y - this.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (distance > this.gp.tileSize) {
+        // Changed from this.gp.tileSize to this.gp.tileSize * 0.5
+        // This allows the monster to get closer to the player
+        if (distance > this.gp.tileSize * 0.5) {
             const moveX = (dx / distance) * actualSpeed;
             const moveY = (dy / distance) * actualSpeed;
 
@@ -258,6 +270,8 @@ export default class Monster {
             this.gp.cChecker.checkTile(this);
             if (this.collisionOn) this.y = prevY;
         }
+
+        this.checkPlayerCollision();
     }
 
     moveRandomly(deltaTime) {
@@ -292,6 +306,9 @@ export default class Monster {
             this.y = prevY;
             this.directionTimer = this.directionChangeInterval; // Force direction change
         }
+
+        // After movement is complete, check for player collision
+        this.checkPlayerCollision();
     }
 
     dyingAnimation() {
@@ -374,5 +391,47 @@ export default class Monster {
 
         // Prevent multiple rewards
         this.dropsLoot = false;
+    }
+
+    checkPlayerCollision() {
+        if (!this.alive || this.dying) return;
+        if (this.damage <= 0) return; // Skip if monster does no damage
+
+        // Create hitboxes for collision detection
+        const monsterArea = {
+            x: this.x + this.solidArea.x,
+            y: this.y + this.solidArea.y,
+            width: this.solidArea.width,
+            height: this.solidArea.height
+        };
+        
+        const player = this.gp.player;
+        const playerArea = {
+            x: player.x + player.solidArea.x,
+            y: player.y + player.solidArea.y,
+            width: player.solidArea.width,
+            height: player.solidArea.height
+        };
+        
+        // Check for collision
+        if (this.rectIntersect(monsterArea, playerArea)) {
+            if (!player.invincible) {
+                console.log(`Monster collision detected! Monster: ${this.name}, Damage: ${this.damage}`);
+                // Find this monster's index
+                const monsterIndex = this.gp.monster[this.gp.currentMap].indexOf(this);
+                if (monsterIndex !== -1) {
+                    player.contactMonster(monsterIndex);
+                }
+            }
+        }
+    }
+
+    rectIntersect(r1, r2) {
+        return (
+            r1.x < r2.x + r2.width &&
+            r1.x + r1.width > r2.x &&
+            r1.y < r2.y + r2.height &&
+            r1.y + r1.height > r2.y
+        );
     }
 }

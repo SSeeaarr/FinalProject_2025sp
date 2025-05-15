@@ -1,14 +1,15 @@
 import Monster from './Monster.js';
 
-export default class MON_GreenSlime extends Monster {
+export default class MON_Crab extends Monster {
     constructor(gp) {
         super(gp);
         
         this.canBeKnockedBack = false;
-        this.name = "Green Slime";
-        this.baseSpeed = 80; // pixels per second
-        this.maxLife = 4;
+        this.name = "Crab";
+        this.baseSpeed = 30; // pixels per second
+        this.maxLife = 1;
         this.life = this.maxLife;
+        this.damage = 200;
         
         // Set movement type to random with custom timing
         this.movementType = 'random';
@@ -36,19 +37,19 @@ export default class MON_GreenSlime extends Monster {
     loadImages() {
         // Load all frames in sequence
         this.frames = [
-            { img: this.loadFrame('Start_End') },  // Frame 0
-            { img: this.loadFrame('2_12') },       // Frame 1
-            { img: this.loadFrame('3_11') },       // Frame 2
-            { img: this.loadFrame('4_10') },       // Frame 3
-            { img: this.loadFrame('5') },          // Frame 4
-            { img: this.loadFrame('6') },          // Frame 5
-            { img: this.loadFrame('7') },          // Frame 6
-            { img: this.loadFrame('8') },          // Frame 7
-            { img: this.loadFrame('9') },          // Frame 8
-            { img: this.loadFrame('4_10') },       // Frame 9
-            { img: this.loadFrame('3_11') },       // Frame 10
-            { img: this.loadFrame('2_12') },       // Frame 11
-            { img: this.loadFrame('Start_End') }   // Frame 12
+            { img: this.loadFrame('1') },  // Frame 0
+            { img: this.loadFrame('1') },       // Frame 1
+            { img: this.loadFrame('1') },       // Frame 2
+            { img: this.loadFrame('1') },       // Frame 3
+            { img: this.loadFrame('1') },          // Frame 4
+            { img: this.loadFrame('1') },          // Frame 5
+            { img: this.loadFrame('1') },          // Frame 6
+            { img: this.loadFrame('1') },          // Frame 7
+            { img: this.loadFrame('1') },          // Frame 8
+            { img: this.loadFrame('1') },       // Frame 9
+            { img: this.loadFrame('1') },       // Frame 10
+            { img: this.loadFrame('1') },       // Frame 11
+            { img: this.loadFrame('1') }   // Frame 12
         ];
 
         // Set initial frame
@@ -57,7 +58,7 @@ export default class MON_GreenSlime extends Monster {
 
     loadFrame(frameName) {
         const img = new Image();
-        img.src = `./res/monster/Slime_${frameName}.png`;
+        img.src = `./res/monster/crab_${frameName}.png`;
         return img;
     }
 

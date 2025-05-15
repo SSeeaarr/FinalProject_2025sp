@@ -1,24 +1,39 @@
 import Monster from './Monster.js';
 
-export default class MON_Boss extends Monster {
+export default class MON_FinalBoss extends Monster {
     constructor(gp) {
         super(gp);
 
         // Make shooting slime immune to knockback
         this.canBeKnockedBack = false;
-        this.name = "Boss";
-        this.baseSpeed = 72; // Speed in pixels per second
-        this.maxLife = 75;
-        this.life = this.maxLife;
 
+        this.name = "Final Boss";
+        this.baseSpeed = 100; // Speed in pixels per second
+        this.maxLife = 200;
+        this.life = this.maxLife;
+        this.noPlayerCollision = true;
+
+        // **New properties for image dimensions**
+        this.imageWidth = 200;
+        this.imageHeight = 200;
+
+        this.solidArea = {
+            x: 0, // Adjust as needed
+            y: 0, // Adjust as needed
+            width: this.imageWidth, // Or a specific width
+            height: this.imageHeight // Or a specific height
+        };
+        this.solidAreaDefaultX = this.solidArea.x;
+        this.solidAreaDefaultY = this.solidArea.y;
+        
         // Set movement type to chase player
         this.movementType = 'chase';
         
         // Projectile properties
         this.projectiles = [];
-        this.shootCooldown = 2;
-        this.shootTimer = 120;
-        this.projectileCount = 12;
+        this.shootCooldown = 1.0;
+        this.shootTimer = 0;
+        this.projectileCount = 8;
         this.projectileSpread = Math.PI * 4;
 
         // Animation properties
@@ -28,8 +43,8 @@ export default class MON_Boss extends Monster {
         this.loadImages();
 
         // Set custom rewards
-        this.exp = 10;
-        this.coins = 10;
+        this.exp = 4;
+        this.coins = 3;
 
         // Death animation properties
         this.dyingDuration = 0.5;
@@ -39,19 +54,7 @@ export default class MON_Boss extends Monster {
     loadImages() {
         // Load all animation frames
         this.frames = [
-            { img: this.loadFrame('Start_End') },  // Frame 0
-            { img: this.loadFrame('2_12') },       // Frame 1
-            { img: this.loadFrame('3_11') },       // Frame 2
-            { img: this.loadFrame('4_10') },       // Frame 3
-            { img: this.loadFrame('5') },          // Frame 4
-            { img: this.loadFrame('6') },          // Frame 5
-            { img: this.loadFrame('7') },          // Frame 6
-            { img: this.loadFrame('8') },          // Frame 7
-            { img: this.loadFrame('9') },          // Frame 8
-            { img: this.loadFrame('4_10') },       // Frame 9
-            { img: this.loadFrame('3_11') },       // Frame 10
-            { img: this.loadFrame('2_12') },       // Frame 11
-            { img: this.loadFrame('Start_End') }   // Frame 12
+            { img: this.loadFrame('fbtest') },  // Frame 0
         ];
 
         // Set the initial frame
@@ -60,7 +63,7 @@ export default class MON_Boss extends Monster {
 
     loadFrame(frameName) {
         const img = new Image();
-        img.src = `./res/monster/Boss_${frameName}.png`;
+        img.src = `./res/monster/${frameName}.png`;
         return img;
     }
 
@@ -111,17 +114,28 @@ export default class MON_Boss extends Monster {
     shootProjectile() {
         const angleStep = this.projectileSpread / (this.projectileCount - 1);
         const baseAngle = Math.atan2(
-            this.gp.player.y - this.y,
-            this.gp.player.x - this.x
+            this.gp.player.y - (this.y + this.imageHeight / 2), // Adjust Y spawn
+            this.gp.player.x - (this.x + this.imageWidth / 2)  // Adjust X spawn
         );
-
+    
         for (let i = 0; i < this.projectileCount; i++) {
             const angle = baseAngle - this.projectileSpread / 2 + i * angleStep;
-            // Just pass direction vector components instead of velocities
             const directionX = Math.cos(angle);
             const directionY = Math.sin(angle);
-
-            this.projectiles.push(new Projectile(this.x, this.y, directionX, directionY, this.gp));
+    
+            // Adjust the starting position of the projectile
+            const spawnOffsetX = this.imageWidth / 2;  // Example: Center X
+            const spawnOffsetY = this.imageHeight / 2; // Example: Center Y
+    
+            this.projectiles.push(
+                new Projectile(
+                    this.x + spawnOffsetX,
+                    this.y + spawnOffsetY,
+                    directionX,
+                    directionY,
+                    this.gp
+                )
+            );
         }
     }
 
@@ -140,8 +154,8 @@ export default class MON_Boss extends Monster {
                 this.currentImage,
                 this.x,
                 this.y,
-                this.gp.tileSize,
-                this.gp.tileSize
+                this.imageWidth,
+                this.imageHeight
             );
             
             ctx.globalAlpha = 1.0; // Reset alpha
