@@ -59,6 +59,27 @@ export default class Monster {
         this.dyingDuration = 0.5; // Default 0.5 second death animation
         this.currentAlpha = 1;
         this.flashCount = 5;
+
+        // Apply New Game Plus scaling if active
+       
+        if (gp.isNewGamePlus) {
+            // Scale based on NG+ level
+            const scaleFactor = gp.enemyScaleFactor || 1.5;
+            
+            // Scale health and damage
+            this.maxLife = Math.floor(this.maxLife * scaleFactor);
+            this.life = this.maxLife;
+            this.damage = Math.floor(this.damage * scaleFactor) || 1;
+            
+            // Increase rewards
+            this.exp = Math.floor(this.exp * 1.2); // 20% more XP
+            this.coins = Math.floor(this.coins * 1.2); // 20% more coins
+            
+            // Add visual indicator for NG+ enemies (optional)
+            this.isNGPlusEnemy = true;
+            
+            
+        }
     }
 
     draw(ctx) {
@@ -95,6 +116,31 @@ export default class Monster {
             // Draw health bar if needed and not dying
             if (this.showHealthBar && !this.dying && this.alive) {
                 this.drawHealthBar(ctx);
+            }
+
+            // Add NG+ visual effect to enemies
+            if (this.isNGPlusEnemy) {
+                // Add a subtle glow around NG+ enemies
+                ctx.save();
+                ctx.globalAlpha = 0.3;
+                ctx.shadowColor = "#FFD700"; // Gold glow
+                ctx.shadowBlur = 10;
+                
+                // Draw a circle/aura
+                ctx.fillStyle = "rgba(255, 215, 0, 0.2)";
+                ctx.beginPath();
+                
+                // Fixed: Use the tileSize with scaling instead of undefined width/height
+                const size = this.gp.tileSize * this.scale;
+                ctx.arc(
+                    this.x + size / 2,
+                    this.y + size / 2,
+                    size * 0.6,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+                ctx.restore();
             }
         }
     }
@@ -371,6 +417,7 @@ export default class Monster {
             this.gp.player.maxLife += 1;
             this.gp.player.life = this.gp.player.maxLife;
             this.gp.player.strength += 1;
+            //this.gp.player.dexterity += 1;
             
             // Show multiple messages for level up
             this.gp.ui.showMessage(`LEVEL UP! You are now level ${this.gp.player.level}!`);

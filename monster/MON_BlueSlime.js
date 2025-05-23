@@ -7,12 +7,12 @@ export default class MON_BlueSlime extends Monster {
         this.canBeKnockedBack = false;
         this.name = "Blue Slime";
         this.baseSpeed = 80; // pixels per second
-        this.maxLife = 4;
+        this.maxLife = 8;
         this.life = this.maxLife;
         
         // Set movement type to random with custom timing
-        this.movementType = 'random';
-        this.directionChangeInterval = 1.5; // Change direction every 1.5 seconds
+        this.movementType = 'chase';
+       
         
         this.spriteCounter = 0;
         this.currentFrame = 0;

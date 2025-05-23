@@ -9,7 +9,7 @@ export default class MON_BlueShootingSlime extends Monster {
 
         this.name = "Blue Shooting Slime";
         this.baseSpeed = 50; // Speed in pixels per second
-        this.maxLife = 6;
+        this.maxLife = 10;
         this.life = this.maxLife;
         
         // Set movement type to chase player
@@ -17,10 +17,10 @@ export default class MON_BlueShootingSlime extends Monster {
         
         // Projectile properties
         this.projectiles = [];
-        this.shootCooldown = 1.5;
+        this.shootCooldown = 3.0;
         this.shootTimer = 0;
-        this.projectileCount = 3;
-        this.projectileSpread = Math.PI / 4;
+        this.projectileCount = 5;
+        this.projectileSpread = Math.PI / 8;
 
         // Animation properties
         this.spriteCounter = 0;
@@ -174,7 +174,7 @@ class Projectile {
     constructor(x, y, velocityX, velocityY, gp) {
         this.x = x;
         this.y = y;
-        this.baseSpeed = 180; // Speed in pixels per second
+        this.baseSpeed = 300; // Speed in pixels per second
         // Store normalized direction vector instead of velocity
         const magnitude = Math.sqrt(velocityX * velocityX + velocityY * velocityY);
         this.directionX = velocityX / magnitude;
@@ -238,8 +238,8 @@ class Projectile {
 
         // Deactivate if out of bounds
         if (
-            this.x < 0 || this.x > this.gp.screenWidth ||
-            this.y < 0 || this.y > this.gp.screenHeight
+            this.x < 0 || this.x > (this.gp.screenWidth * 1.5) ||
+            this.y < 0 || this.y > (this.gp.screenHeight * 1.5)
         ) {
             this.active = false;
         }

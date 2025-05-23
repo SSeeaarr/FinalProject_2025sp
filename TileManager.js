@@ -46,9 +46,6 @@ export default class TileManager {
         this.loadMap('./res/maps/BeachMaps/map33.txt', 31);
         this.loadMap('./res/maps/BeachMaps/map34.txt', 32);
         this.loadMap('./res/maps/ForestMaps/map.67.txt', 33);
-
-       
-
     }
 
     loadTileImages() {
@@ -155,23 +152,35 @@ export default class TileManager {
     }
 
     draw(ctx) {
+        // Save the current context state
+        ctx.save();
+        
+        // Disable image smoothing for crisp pixel art
+        ctx.imageSmoothingEnabled = false;
+        
         for (let row = 0; row < this.gp.maxScreenRow; row++) {
             for (let col = 0; col < this.gp.maxScreenCol; col++) {
                 const tileNum = this.mapTileNum[this.gp.currentMap][col][row];
-                const x = col * this.gp.tileSize;
-                const y = row * this.gp.tileSize;
+                
+                // Ensure pixel-perfect alignment by using Math.floor
+                const x = Math.floor(col * this.gp.tileSize);
+                const y = Math.floor(row * this.gp.tileSize);
                 
                 // Draw the tile if image is loaded
                 if (this.tile[tileNum] && this.tile[tileNum].image) {
+                    // Make tiles slightly larger to eliminate gaps
                     ctx.drawImage(
                         this.tile[tileNum].image, 
                         x, 
                         y, 
-                        this.gp.tileSize, 
-                        this.gp.tileSize
+                        this.gp.tileSize + 0.5, // Add a small overlap
+                        this.gp.tileSize + 0.5  // Add a small overlap
                     );
                 }
             }
         }
+        
+        // Restore the context state
+        ctx.restore();
     }
 }

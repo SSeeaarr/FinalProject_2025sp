@@ -1,5 +1,97 @@
 import Ability from './Ability.js';
 
+export class ArrowInstance { // Export class
+    constructor(x, y, directionX, directionY, gp, player, damage, speed, lifetime, image) {
+        this.x = x;
+        this.y = y;
+        this.baseSpeed = speed;
+        
+        const magnitude = Math.sqrt(directionX * directionX + directionY * directionY);
+        this.directionX = magnitude === 0 ? 0 : directionX / magnitude;
+        this.directionY = magnitude === 0 ? 0 : directionY / magnitude;
+        
+        this.gp = gp;
+        this.player = player; // Can be null for remote instances
+        this.active = true;
+        this.damage = player ? damage : 0; // Damage is 0 for remote visual instances
+        this.lifetime = lifetime;
+        this.age = 0;
+        this.image = image;
+        
+        this.width = 24;
+        this.height = 24;
+    }
+
+    update() {
+        const moveDistance = this.baseSpeed * this.gp.deltaTime;
+        this.x += this.directionX * moveDistance;
+        this.y += this.directionY * moveDistance;
+
+        this.age += this.gp.deltaTime;
+        if (this.age >= this.lifetime) {
+            this.active = false;
+            return;
+        }
+
+        if (this.player) { // Only player's own arrows check collision
+            this.gp.monster[this.gp.currentMap]?.forEach(monster => {
+                if (monster && monster.alive && !monster.dying && this.active) { // check this.active
+                    const monsterArea = {
+                        x: monster.x + monster.solidArea.x,
+                        y: monster.y + monster.solidArea.y,
+                        width: monster.solidArea.width,
+                        height: monster.solidArea.height
+                    };
+                    const arrowArea = {
+                        x: this.x,
+                        y: this.y,
+                        width: this.width,
+                        height: this.height
+                    };
+                    if (this.rectIntersect(monsterArea, arrowArea)) {
+                        if (!monster.invincible) {
+                            monster.takeDamage(this.damage);
+                            this.active = false; 
+                        }
+                    }
+                }
+            });
+        }
+        if (!this.active) return;
+
+        const maxBoundary = this.gp.tileSize * Math.max(this.gp.maxScreenCol, this.gp.maxScreenRow) * 1.5;
+        if (
+            this.x < -maxBoundary || this.x > this.gp.tileSize * this.gp.maxScreenCol + maxBoundary ||
+            this.y < -maxBoundary || this.y > this.gp.tileSize * this.gp.maxScreenRow + maxBoundary
+        ) {
+            this.active = false;
+        }
+    }
+
+    draw(ctx) {
+        if (this.image && this.image.complete) {
+            const angle = Math.atan2(this.directionY, this.directionX);
+            ctx.save();
+            ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+            ctx.rotate(angle);
+            ctx.drawImage(this.image, -this.width / 2, -this.height / 2, this.width, this.height);
+            ctx.restore();
+        } else {
+            ctx.fillStyle = 'grey';
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
+    }
+
+    rectIntersect(r1, r2) {
+        return (
+            r1.x < r2.x + r2.width &&
+            r1.x + r1.width > r2.x &&
+            r1.y < r2.y + r2.height &&
+            r1.y + r2.height > r2.y
+        );
+    }
+}
+
 export default class TripleShot extends Ability {
     constructor(gp, player) {
         super(gp, player);
@@ -8,11 +100,11 @@ export default class TripleShot extends Ability {
         
         // Setup scaling values (arrows scale mostly with dexterity)
         this.baseDamage = 1; // Base damage before scaling
-        this.dexterityScaling = 0.5; // 50% of dexterity added to damage
-        this.attackScaling = 0.2; // 20% of attack added to damage
+        this.strengthScaling = 0.6; // 60% of str added to damage
+        this.attackScaling = 1.2; // 80% of attack added to damage
 
-        this.damage = 1; // Lower damage per arrow
-        this.speed = 900; // Increase from 600 to 900 for faster arrows
+        this.damage = 1.5; // Lower damage per arrow
+        this.speed = 900; 
         this.lifetime = 4; // Shorter lifetime than fireball
         
         // Burst properties
@@ -59,6 +151,14 @@ export default class TripleShot extends Ability {
             this.isBursting = true;
             this.currentBurst = 0;
             this.burstTimer = this.burstDelay; // Immediately fire first salvo
+            
+            if (this.gp.multiplayer && this.gp.multiplayer.socket && this.gp.multiplayer.socket.readyState === WebSocket.OPEN) {
+                this.gp.multiplayer.sendGameAction('abilityUsed', {
+                    abilityName: this.name,
+                    casterId: this.gp.multiplayer.playerId,
+                    direction: this.player.direction 
+                });
+            }
             
             return true;
         }
@@ -121,141 +221,7 @@ export default class TripleShot extends Ability {
     calculateDamage() {
         return this.baseDamage +
                this.player.dexterity * this.dexterityScaling +
+               this.player.strength * this.strengthScaling +
                this.player.attack * this.attackScaling;
-    }
-}
-
-class ArrowInstance {
-    constructor(x, y, directionX, directionY, gp, player, damage, speed, lifetime, image) {
-        this.x = x;
-        this.y = y;
-        this.baseSpeed = speed;
-        
-        // Store normalized direction vector
-        const magnitude = Math.sqrt(directionX * directionX + directionY * directionY);
-        this.directionX = directionX / magnitude;
-        this.directionY = directionY / magnitude;
-        
-        this.gp = gp;
-        this.player = player;
-        this.active = true;
-        this.damage = damage;
-        this.lifetime = lifetime;
-        this.age = 0;
-        this.image = image;
-        
-        this.width = 24;
-        this.height = 24;
-    }
-
-    update() {
-        // Update position using deltaTime for frame-rate independence
-        const moveDistance = this.baseSpeed * this.gp.deltaTime;
-        this.x += this.directionX * moveDistance;
-        this.y += this.directionY * moveDistance;
-
-        // Track lifetime
-        this.age += this.gp.deltaTime;
-        if (this.age >= this.lifetime) {
-            this.active = false;
-            return;
-        }
-
-        // Check collision with monsters
-        this.gp.monster[this.gp.currentMap]?.forEach(monster => {
-            if (monster && monster.alive && !monster.dying) {
-                const monsterArea = {
-                    x: monster.x + monster.solidArea.x,
-                    y: monster.y + monster.solidArea.y,
-                    width: monster.solidArea.width,
-                    height: monster.solidArea.height
-                };
-
-                const arrowArea = {
-                    x: this.x,
-                    y: this.y,
-                    width: this.width,
-                    height: this.height
-                };
-
-                if (this.rectIntersect(monsterArea, arrowArea)) {
-                    if (!monster.invincible) {
-                        monster.takeDamage(this.damage);
-                        this.active = false; // Arrow is consumed on hit
-                    }
-                }
-            }
-        });
-
-        // Deactivate if out of bounds
-        const maxBoundary = this.gp.tileSize * Math.max(this.gp.maxScreenCol, this.gp.maxScreenRow) * 1.5;
-        if (
-            this.x < -maxBoundary || this.x > this.gp.tileSize * this.gp.maxScreenCol + maxBoundary ||
-            this.y < -maxBoundary || this.y > this.gp.tileSize * this.gp.maxScreenRow + maxBoundary
-        ) {
-            this.active = false;
-        }
-    }
-
-    draw(ctx) {
-        if (this.image.complete) {
-            // Calculate rotation angle based on direction
-            const angle = Math.atan2(this.directionY, this.directionX);
-            
-            // Center of the arrow
-            const centerX = this.x + this.width / 2;
-            const centerY = this.y + this.height / 2;
-            
-            // Draw arrow trail effect
-            const trailCount = 3;
-            ctx.save();
-            for (let i = 0; i < trailCount; i++) {
-                // Calculate how far behind the arrow this trail segment should be
-                const trailDistance = (i + 1) * 12; // Increased from 8 to 12 for more spacing
-                
-                // Position trail directly behind the arrow based on its direction
-                const trailX = centerX - (this.directionX * trailDistance);
-                const trailY = centerY - (this.directionY * trailDistance);
-                
-                // Fade and shrink trails as they get further from the arrow
-                const trailAlpha = 0.4 - (i * 0.1); // Start more visible (0.4 instead of 0.3)
-                const trailScale = 0.9 - (i * 0.2); // Start larger (0.9 instead of 0.8)
-                
-                // Draw the trail segment
-                ctx.globalAlpha = trailAlpha;
-                ctx.save();
-                ctx.translate(trailX, trailY);
-                ctx.rotate(angle);
-                ctx.drawImage(
-                    this.image, 
-                    -this.width / 2 * trailScale, 
-                    -this.height / 2 * trailScale, 
-                    this.width * trailScale, 
-                    this.height * trailScale
-                );
-                ctx.restore();
-            }
-            ctx.restore();
-            
-            // Draw the main arrow
-            ctx.save();
-            // Add a subtle glow
-            ctx.shadowColor = 'rgba(0, 200, 255, 0.6)';
-            ctx.shadowBlur = 10;
-            
-            ctx.translate(centerX, centerY);
-            ctx.rotate(angle);
-            ctx.drawImage(this.image, -this.width / 2, -this.height / 2, this.width, this.height);
-            ctx.restore();
-        }
-    }
-
-    rectIntersect(r1, r2) {
-        return (
-            r1.x < r2.x + r2.width &&
-            r1.x + r1.width > r2.x &&
-            r1.y < r2.y + r2.height &&
-            r1.y + r1.height > r2.y
-        );
     }
 }

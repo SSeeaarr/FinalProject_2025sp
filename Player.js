@@ -9,6 +9,11 @@ export default class Player {
         this.gp = gp;
         this.keyH = keyH;
 
+        // Debug properties
+        this.startingMap = 0; // 21 is final boss, 0 is default first map
+        this.startingX = 100;  // Optional starting X coordinate 
+        this.startingY = 100;  // Optional starting Y coordinate
+
         // Initialize solidArea first // (for collision detection [character hitbox])
         this.solidArea = {
             x: 8,
@@ -60,7 +65,7 @@ export default class Player {
         this.dialogueCooldown = 0;
 
         // Add character class property
-        this.characterClass = "mage"; // Default class
+        this.characterClass = "Mage"; // Default class
 
         // Abilities system
         this.abilities = [];
@@ -75,10 +80,11 @@ export default class Player {
     }
 
     setDefaultValues() {
-        this.x = 100;
-        this.y = 100;
-        this.speed = 2; //2
+        // Use starting position from debug properties
+        this.x = this.startingX;
+        this.y = this.startingY;
         this.direction = "down";
+        this.speedMultiplier = 1; // Initialize speedMultiplier (this is needed for gambler's speed boost to work properly)
 
         // CHARACTER BASE STATS //-------------------------------
         this.maxLife = 6;
@@ -180,6 +186,82 @@ export default class Player {
         this.ATKright2.src = "./res/player/New_Knight_Right_ATK_2.png";
     }
 
+    getArcherImages() {
+        this.up1 = new Image();
+        this.up1.src = "./res/player/New_Archer_Back_1.png";
+        this.up2 = new Image();
+        this.up2.src = "./res/player/New_Archer_Back_2.png";
+        this.down1 = new Image();
+        this.down1.src = "./res/player/New_Archer_Front_1.png";
+        this.down2 = new Image();
+        this.down2.src = "./res/player/New_Archer_Front_2.png";
+        this.left1 = new Image();
+        this.left1.src = "./res/player/New_Archer_Left_1.png";
+        this.left2 = new Image();
+        this.left2.src = "./res/player/New_Archer_Left_2.png";
+        this.right1 = new Image();
+        this.right1.src = "./res/player/New_Archer_Right_1.png";
+        this.right2 = new Image();
+        this.right2.src = "./res/player/New_Archer_Right_2.png";
+    }
+
+    getArcherAttackImages() {
+        this.ATKup1 = new Image();
+        this.ATKup1.src = "./res/player/New_Archer_Back_ATK_1.png";
+        this.ATKup2 = new Image();
+        this.ATKup2.src = "./res/player/New_Archer_Back_ATK_2.png";
+        this.ATKdown1 = new Image();
+        this.ATKdown1.src = "./res/player/New_Archer_Front_ATK_1.png";
+        this.ATKdown2 = new Image();
+        this.ATKdown2.src = "./res/player/New_Archer_Front_ATK_2.png";
+        this.ATKleft1 = new Image();
+        this.ATKleft1.src = "./res/player/New_Archer_Left_ATK_1.png";
+        this.ATKleft2 = new Image();
+        this.ATKleft2.src = "./res/player/New_Archer_Left_ATK_2.png";
+        this.ATKright1 = new Image();
+        this.ATKright1.src = "./res/player/New_Archer_Right_ATK_1.png";
+        this.ATKright2 = new Image();
+        this.ATKright2.src = "./res/player/New_Archer_Right_ATK_2.png";
+    }
+
+    getGamblerImages() {
+        this.up1 = new Image();
+        this.up1.src = "./res/player/New_Gambler_Back_1.png";
+        this.up2 = new Image();
+        this.up2.src = "./res/player/New_Gambler_Back_2.png";
+        this.down1 = new Image();
+        this.down1.src = "./res/player/New_Gambler_Front_1.png";
+        this.down2 = new Image();
+        this.down2.src = "./res/player/New_Gambler_Front_2.png";
+        this.left1 = new Image();
+        this.left1.src = "./res/player/New_Gambler_Left_1.png";
+        this.left2 = new Image();
+        this.left2.src = "./res/player/New_Gambler_Left_2.png";
+        this.right1 = new Image();
+        this.right1.src = "./res/player/New_Gambler_Right_1.png";
+        this.right2 = new Image();
+        this.right2.src = "./res/player/New_Gambler_Right_2.png";
+    }
+
+    getGamblerAttackImages() {
+        this.ATKup1 = new Image();
+        this.ATKup1.src = "./res/player/New_Gambler_Back_ATK_1.png";
+        this.ATKup2 = new Image();
+        this.ATKup2.src = "./res/player/New_Gambler_Back_ATK_2.png";
+        this.ATKdown1 = new Image();
+        this.ATKdown1.src = "./res/player/New_Gambler_Front_ATK_1.png";
+        this.ATKdown2 = new Image();
+        this.ATKdown2.src = "./res/player/New_Gambler_Front_ATK_2.png";
+        this.ATKleft1 = new Image();
+        this.ATKleft1.src = "./res/player/New_Gambler_Left_ATK_1.png";
+        this.ATKleft2 = new Image();
+        this.ATKleft2.src = "./res/player/New_Gambler_Left_ATK_2.png";
+        this.ATKright1 = new Image();
+        this.ATKright1.src = "./res/player/New_Gambler_Right_ATK_1.png";
+        this.ATKright2 = new Image();
+        this.ATKright2.src = "./res/player/New_Gambler_Right_ATK_2.png";
+    }
+
     update() {
         // Update dialogue cooldown
         if (this.dialogueCooldown > 0) {
@@ -267,7 +349,7 @@ export default class Player {
             const prevY = this.y;
             
             let isMoving = false;
-            const moveDistance = this.baseSpeed * this.gp.deltaTime;
+            const moveDistance = (this.baseSpeed * this.speedMultiplier) * this.gp.deltaTime;
             
             // Update Y position
             if (this.keyH.upPressed) {
@@ -303,7 +385,6 @@ export default class Player {
         if (objIndex !== 999) {
             const obj = this.gp.obj[this.gp.currentMap][objIndex];
             if (obj) {
-                console.log("Player collided with object at index:", objIndex, "Type:", obj.type); // <--- ADD THIS LOG
                 if (obj.collision) {
                     this.collisionOn = true;
                 }
@@ -1160,6 +1241,15 @@ export default class Player {
             
             this.gp.ui.showMessage("Inventory full!");
             return false;
+        }
+    }
+
+    // Add a method to apply the debug starting map
+    applyDebugStartingMap() {
+        // Only apply if startingMap is not the default (0)
+        if (this.startingMap !== 0) {
+            console.log(`🔧 DEBUG: Starting at map ${this.startingMap} (change Player.startingMap to customize)`);
+            this.gp.currentMap = this.startingMap;
         }
     }
 }

@@ -17,6 +17,7 @@ export default class MON_GreenSlime extends Monster {
         this.spriteCounter = 0;
         this.currentFrame = 0;
         this.totalFrames = 12;
+        this.damage = 1;
         
         this.frames = [];
         this.loadImages();
@@ -150,6 +151,7 @@ export default class MON_GreenSlime extends Monster {
             if (this.showHealthBar && !this.dying && this.alive) {
                 this.drawHealthBar(ctx);
             }
+            
         }
     }
 

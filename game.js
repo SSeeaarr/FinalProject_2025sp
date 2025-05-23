@@ -6,6 +6,15 @@ import UI from './UI.js';
 import EventHandler from './Eventhandler.js';
 import Player from './Player.js';
 import GameDataService from './GameDataService.js';
+import { FireballInstance } from './abilities/Fireball.js';
+import { ArrowInstance } from './abilities/TripleShot.js';
+
+import Fireball from './abilities/Fireball.js';
+import TripleShot from './abilities/TripleShot.js';
+import Dash from './abilities/Dash.js';
+import RollTheDice from './abilities/RollTheDice.js';
+
+import OBJ_Hotdog from './objects/OBJ_Hotdog.js';
 
 class GamePanel {
     constructor(canvas) {
@@ -38,6 +47,10 @@ class GamePanel {
         this.pauseState = 2;
         this.dialogueState = 3;
         this.gameOverState = 4;
+        this.winState = 5;
+        
+        // Initialize win screen option selector
+        this.winScreenOption = 0; // Default to first option (Return to Title)
         
         // Then set initial state
         this.gameState = this.playState;
@@ -75,7 +88,18 @@ class GamePanel {
 
         // Initialize effects array
         this.effects = [];
+        this.remoteEffects = []; // For remote player ability visuals
+
+        // Initialize ability definitions for remote effect visuals
+        this.abilityDefinitions = new Map();
+        this.abilityDefinitions.set("Fireball", new Fireball(this, null));
+        this.abilityDefinitions.set("TripleShot", new TripleShot(this, null));
+        this.abilityDefinitions.set("Dash", new Dash(this, null));
+        this.abilityDefinitions.set("Roll the Dice", new RollTheDice(this, null));
         
+        // Make OBJ_Hotdog available to other classes through the GamePanel reference
+        this.OBJ_Hotdog = OBJ_Hotdog;
+
         console.log("Game panel initialized successfully");
     }
 
@@ -166,6 +190,9 @@ class GamePanel {
             this.ui.showMessage(`Starting new game as a ${selectedClass}...`);
         }
         
+        // Apply debug starting map if set
+        this.player.applyDebugStartingMap();
+        
         this.gameState = this.playState;
         
         // Add explicit console log to see when setup completes
@@ -255,18 +282,16 @@ class GamePanel {
             }
 
             // Update monsters and remove dead ones
-            for (let i = 0; i < this.monster[this.currentMap].length; i++) {
+            for (let i = this.monster[this.currentMap].length - 1; i >= 0; i--) {
                 if (this.monster[this.currentMap][i] != null) {
                     this.monster[this.currentMap][i].update();
                     
                     const monster = this.monster[this.currentMap][i];
                     if (!monster.alive && !monster.dying) {
-                        this.monster[this.currentMap][i] = null;
+                        this.monster[this.currentMap].splice(i, 1);
                     }
                 }
             }
-            // Filter out null monsters
-            this.monster[this.currentMap] = this.monster[this.currentMap].filter(m => m != null);
 
             // Update effects
             if (this.effects) {
@@ -275,6 +300,18 @@ class GamePanel {
                         this.effects[i].update();
                         if (!this.effects[i].active) {
                             this.effects.splice(i, 1);
+                        }
+                    }
+                }
+            }
+
+            // Update remote effects
+            if (this.remoteEffects) {
+                for (let i = this.remoteEffects.length - 1; i >= 0; i--) {
+                    if (this.remoteEffects[i]) {
+                        this.remoteEffects[i].update(); 
+                        if (!this.remoteEffects[i].active) { 
+                            this.remoteEffects.splice(i, 1);
                         }
                     }
                 }
@@ -332,11 +369,20 @@ class GamePanel {
         // Draw Player
         this.player.draw(this.ctx);
 
-        // Draw Effects (like explosions)
+        // Draw Effects (like explosions from local player)
         if (this.effects) {
             for (let i = 0; i < this.effects.length; i++) {
                 if (this.effects[i] && this.effects[i].active) {
                     this.effects[i].draw(this.ctx);
+                }
+            }
+        }
+
+        // Draw Remote Effects (projectiles, ability visuals from other players)
+        if (this.remoteEffects) {
+            for (let i = 0; i < this.remoteEffects.length; i++) {
+                if (this.remoteEffects[i] && this.remoteEffects[i].active) {
+                    this.remoteEffects[i].draw(this.ctx);
                 }
             }
         }
@@ -350,6 +396,19 @@ class GamePanel {
             this.multiplayer.otherPlayers.forEach(player => {
                 
                 this.drawOtherPlayer(player);
+                // Draw remote dash trail for this player
+                if (player.remoteDashTrail) {
+                    player.remoteDashTrail.forEach(particle => {
+                        this.ctx.save();
+                        this.ctx.globalAlpha = particle.alpha;
+                        this.ctx.fillStyle = 'rgba(180, 200, 235, 0.6)'; 
+                        const halfSize = particle.size / 2;
+                        this.ctx.beginPath();
+                        this.ctx.arc(particle.x, particle.y, halfSize, 0, Math.PI * 2);
+                        this.ctx.fill();
+                        this.ctx.restore();
+                    });
+                }
             });
         }
         
@@ -360,9 +419,8 @@ class GamePanel {
     }
     
     drawOtherPlayer(player) {
-
         if (player.currentMap !== this.currentMap) {
-        return;
+            return;
         }
         
         // Use visualX and visualY for drawing if available
@@ -374,9 +432,11 @@ class GamePanel {
         const ctx = this.ctx;
         ctx.save();
 
-        // Calculate screen position
+        // Calculate screen position - these will be adjusted for attacks
         let calculatedScreenX = drawX;
         let calculatedScreenY = drawY;
+        let drawWidth = this.tileSize;
+        let drawHeight = this.tileSize;
 
         // Get player color for fallback
         let playerColor;
@@ -403,51 +463,101 @@ class GamePanel {
             const frame = spriteNumber === 1 ? '1' : '2';
             const characterClass = player.characterClass || 'mage';
             
-            // Create a unique key for this sprite
-            const spriteKey = `${characterClass}_${direction}_${frame}`;
-            
-            // Check if we already have this sprite cached
-            if (!this.playerSpriteCache[spriteKey]) {
-                // Create and cache the new sprite
-                const tempImage = new Image();
+            // Check if player is attacking - handle attack animation
+            if (player.attacking) {
+                // Create a unique key for this attack sprite
+                const attackSpriteKey = `${characterClass}_${direction}_attack_${frame}`;
                 
-                // Convert direction to the correct sprite filename part
-                let directionInFilename;
+                // Adjust drawing parameters based on direction, similar to Player class
                 switch(direction) {
-                    case 'up':
-                        directionInFilename = 'Back';
+                    case "up":
+                        calculatedScreenY -= this.tileSize;
+                        drawHeight = this.tileSize * 2;
                         break;
-                    case 'down':
-                        directionInFilename = 'Front';
+                    case "down":
+                        drawHeight = this.tileSize * 2;
                         break;
-                    case 'left':
-                        directionInFilename = 'Left';
+                    case "left":
+                        calculatedScreenX -= this.tileSize;
+                        drawWidth = this.tileSize * 2;
                         break;
-                    case 'right':
-                        directionInFilename = 'Right';
+                    case "right":
+                        drawWidth = this.tileSize * 2;
                         break;
-                    default:
-                        directionInFilename = 'Front'; // Default to front
                 }
                 
-                // Load the appropriate class sprite with correct naming convention
-                if (characterClass === 'knight') {
-                    tempImage.src = `./res/player/New_Knight_${directionInFilename}_${frame}.png`;
-                } else if (characterClass === 'gambler') {
-                    tempImage.src = `./res/player/New_Gambler_${directionInFilename}_${frame}.png`;
-                } else if (characterClass === 'archer') {
-                    tempImage.src = `./res/player/New_Archer_${directionInFilename}_${frame}.png`;
-                } else {
-                    // Default to mage sprites for other classes
-                    tempImage.src = `./res/player/New_Mage_${directionInFilename}_${frame}.png`;
+                // Check if we already have this attack sprite cached
+                if (!this.playerSpriteCache[attackSpriteKey]) {
+                    // Create and cache the new attack sprite
+                    const tempImage = new Image();
+                    
+                    // Convert direction to the correct sprite filename part
+                    let directionInFilename;
+                    switch(direction) {
+                        case 'up': directionInFilename = 'Back'; break;
+                        case 'down': directionInFilename = 'Front'; break;
+                        case 'left': directionInFilename = 'Left'; break;
+                        case 'right': directionInFilename = 'Right'; break;
+                        default: directionInFilename = 'Front';
+                    }
+                    
+                    // Use the appropriate class attack sprite with correct naming convention
+                    if (characterClass === 'knight') {
+                        tempImage.src = `./res/player/New_Knight_${directionInFilename}_ATK_${frame}.png`;
+                    } else if (characterClass === 'gambler') {
+                        tempImage.src = `./res/player/New_Gambler_${directionInFilename}_ATK_${frame}.png`;
+                    } else if (characterClass === 'archer') {
+                        tempImage.src = `./res/player/New_Archer_${directionInFilename}_ATK_${frame}.png`;
+                    } else {
+                        // Default to mage attack sprites
+                        tempImage.src = `./res/player/New_Mage_${directionInFilename}_ATK_${frame}.png`;
+                    }
+                    
+                    // Store in cache
+                    this.playerSpriteCache[attackSpriteKey] = tempImage;
                 }
                 
-                // Store in cache
-                this.playerSpriteCache[spriteKey] = tempImage;
+                // Get the attack sprite from cache
+                spriteImage = this.playerSpriteCache[attackSpriteKey];
+            } else {
+                // Regular movement sprite - use existing code
+                // Create a unique key for this sprite
+                const spriteKey = `${characterClass}_${direction}_${frame}`;
+                
+                // Check if we already have this sprite cached
+                if (!this.playerSpriteCache[spriteKey]) {
+                    // Create and cache the new sprite
+                    const tempImage = new Image();
+                    
+                    // Convert direction to the correct sprite filename part
+                    let directionInFilename;
+                    switch(direction) {
+                        case 'up': directionInFilename = 'Back'; break;
+                        case 'down': directionInFilename = 'Front'; break;
+                        case 'left': directionInFilename = 'Left'; break;
+                        case 'right': directionInFilename = 'Right'; break;
+                        default: directionInFilename = 'Front';
+                    }
+                    
+                    // Load the appropriate class sprite with correct naming convention
+                    if (characterClass === 'knight') {
+                        tempImage.src = `./res/player/New_Knight_${directionInFilename}_${frame}.png`;
+                    } else if (characterClass === 'gambler') {
+                        tempImage.src = `./res/player/New_Gambler_${directionInFilename}_${frame}.png`;
+                    } else if (characterClass === 'archer') {
+                        tempImage.src = `./res/player/New_Archer_${directionInFilename}_${frame}.png`;
+                    } else {
+                        // Default to mage sprites for other classes
+                        tempImage.src = `./res/player/New_Mage_${directionInFilename}_${frame}.png`;
+                    }
+                    
+                    // Store in cache
+                    this.playerSpriteCache[spriteKey] = tempImage;
+                }
+                
+                // Get the sprite from cache
+                spriteImage = this.playerSpriteCache[spriteKey];
             }
-            
-            // Get the sprite from cache
-            spriteImage = this.playerSpriteCache[spriteKey];
             
             // If the image isn't yet loaded, fall back to the colored rectangle
             if (!spriteImage.complete) {
@@ -455,16 +565,16 @@ class GamePanel {
                 ctx.fillRect(
                     calculatedScreenX,
                     calculatedScreenY,
-                    this.tileSize,
-                    this.tileSize
+                    drawWidth,
+                    drawHeight
                 );
             } else {
                 ctx.drawImage(
                     spriteImage,
                     calculatedScreenX,
                     calculatedScreenY,
-                    this.tileSize,
-                    this.tileSize
+                    drawWidth,
+                    drawHeight
                 );
             }
         } catch (e) {
@@ -488,15 +598,51 @@ class GamePanel {
 
         const displayName = player.name || (player.id ? player.id.split('-')[0] : 'Unknown');
 
+        // Calculate original center position based on the tile size, not the expanded attack sprite
+        let namePosX, namePosY;
+
+        if (player.attacking) {
+            switch(player.direction || 'down') {
+                case 'up':
+                    // Keep centered on original tile position (not the expanded upward sprite)
+                    namePosX = calculatedScreenX + this.tileSize/2;
+                    namePosY = calculatedScreenY + this.tileSize - 10; // Position above the original tile
+                    break;
+                case 'down':
+                    // Keep centered on original tile
+                    namePosX = calculatedScreenX + this.tileSize/2;
+                    namePosY = calculatedScreenY - 10;
+                    break;
+                case 'left':
+                    // Keep centered on original tile (not the expanded leftward sprite)
+                    namePosX = calculatedScreenX + this.tileSize + this.tileSize/2;
+                    namePosY = calculatedScreenY - 10;
+                    break;
+                case 'right':
+                    // Keep centered on original tile
+                    namePosX = calculatedScreenX + this.tileSize/2;
+                    namePosY = calculatedScreenY - 10;
+                    break;
+                default:
+                    namePosX = calculatedScreenX + this.tileSize/2;
+                    namePosY = calculatedScreenY - 10;
+            }
+        } else {
+            // Standard positioning for non-attacking sprites
+            namePosX = calculatedScreenX + this.tileSize/2;
+            namePosY = calculatedScreenY - 10;
+        }
+
+        // Draw the name text
         ctx.strokeText(
             displayName,
-            calculatedScreenX + this.tileSize/2,
-            calculatedScreenY - 10
+            namePosX,
+            namePosY
         );
         ctx.fillText(
             displayName,
-            calculatedScreenX + this.tileSize/2,
-            calculatedScreenY - 10
+            namePosX,
+            namePosY
         );
 
         ctx.restore();
@@ -558,6 +704,107 @@ class GamePanel {
             
             debugDiv.innerHTML = debugText;
         }, 1000);
+    }
+
+    resetGame() {
+        console.log("Resetting game for New Game+");
+        
+        // Reset maps and objects
+        this.obj = Array.from({ length: this.maxMap }, () => Array(10).fill(null));
+        this.npc = Array.from({ length: this.maxMap }, () => Array(10).fill(null));
+        this.monster = Array.from({ length: this.maxMap }, () => Array(20).fill(null));
+        
+        // Clear effects
+        this.effects = [];
+        this.remoteEffects = [];
+        
+        // Reset player to starting position and map
+        this.player.x = this.player.startingX;
+        this.player.y = this.player.startingY;
+        this.player.worldX = this.player.x;
+        this.player.worldY = this.player.y;
+        this.player.direction = "down";
+        this.currentMap = 0;
+        
+        // Repopulate the world
+        this.aSetter.setObject();
+        this.aSetter.setNPC();
+        this.aSetter.setMonster();
+        
+        console.log("Game reset complete");
+    }
+
+    startNewGamePlus() {
+        console.log("Starting New Game+");
+        
+        // Save current player stats and inventory
+        const playerLevel = this.player.level;
+        const playerExp = this.player.exp;
+        const playerCoin = this.player.coin;
+        const playerCharacterClass = this.player.characterClass;
+        
+        // Save player's inventory before reset
+        const playerInventory = this.player.inventory ? [...this.player.inventory] : [];
+        const playerCurrentWeapon = this.player.currentWeapon;
+        const playerCurrentArmor = this.player.currentArmor;
+        
+        // Check if already in NG+ mode
+        if (this.isNewGamePlus) {
+            // Increment NG+ level for stacking difficulty
+            this.newGamePlusLevel++;
+            // Increase enemy scaling - gets progressively harder
+            this.enemyScaleFactor = 1.3 + (this.newGamePlusLevel * 0.2); // 1.5, 1.7, 1.9, etc.
+            console.log(`Starting NG+${this.newGamePlusLevel} with scaling factor ${this.enemyScaleFactor}`);
+        } else {
+            // First NG+ cycle
+            this.isNewGamePlus = true;
+            this.newGamePlusLevel = 1;
+            this.enemyScaleFactor = 1.5;
+        }
+        
+        // Now reset and repopulate the game with scaled monsters
+        this.resetGame();
+        
+        // Restore player stats, inventory, etc.
+        this.player.level = playerLevel;
+        this.player.exp = playerExp;
+        this.player.characterClass = playerCharacterClass;
+        
+        // Give back some currency
+        this.player.coin = Math.floor(playerCoin * 0.5); // Let them keep 50% of coins
+        
+        // IMPORTANT: Restore player's inventory
+        if (playerInventory.length > 0) {
+            console.log("Restoring player inventory with items:", playerInventory.filter(i => i).length);
+            this.player.inventory = playerInventory;
+            
+            // Restore equipped items if they exist
+            if (playerCurrentWeapon) {
+                this.player.currentWeapon = playerCurrentWeapon;
+                // Make sure attack stat includes weapon bonus
+                this.player.attack = this.player.baseAttack + playerCurrentWeapon.attack;
+            }
+            
+            if (playerCurrentArmor) {
+                this.player.currentArmor = playerCurrentArmor;
+                // Make sure defense stat includes armor bonus
+                this.player.defense = this.player.baseDefense + playerCurrentArmor.defense;
+            }
+        } else {
+            // Initialize a fresh inventory if needed
+            console.log("No inventory to restore, initializing empty inventory");
+            this.player.inventory = Array(this.player.maxInventorySize).fill(null);
+        }
+        
+        // Re-initialize the player's class-specific ability
+        this.player.abilities = [];
+        this.player.initClassAbility();
+        
+        // Update message to show current NG+ level
+        this.ui.showMessage(`New Game+${this.newGamePlusLevel} Started! Enemies are ${Math.floor((this.enemyScaleFactor-1)*100)}% stronger!`);
+        
+        // Start the game
+        this.gameState = this.playState;
     }
 }
 
@@ -689,36 +936,6 @@ export async function initializeGame(playerName, playerClass, partyMembers = [],
     }
 }
 
-// Add fullscreen functionality
-function setupFullscreen(game) {
-    // Add fullscreen toggle function to game
-    game.toggleFullscreen = function() {
-        if (!document.fullscreenElement) {
-            game.canvas.requestFullscreen().catch(err => {
-                console.error(`Error attempting to enable fullscreen: ${err.message}`);
-            });
-        } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            }
-        }
-    };
-    
-    // Add a fullscreen toggle key
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'f' || e.key === 'F') {
-            game.toggleFullscreen();
-        }
-    });
-    
-    // Set canvas to be fullscreen
-    game.canvas.style.display = 'block';
-    game.canvas.style.position = 'absolute';
-    game.canvas.style.top = '0';
-    game.canvas.style.left = '0';
-    game.canvas.style.width = '100%';
-    game.canvas.style.height = '100%';
-}
 
 function applyClassAttributes(player, playerClass) {
     // Convert to lowercase for case-insensitive comparison
@@ -779,6 +996,8 @@ class MultiplayerManager {
         this.lastMonsterSyncTime = 0;
         this.monsterSyncCounter = 0; // Used to stagger monster updates
         this.syncedMonsters = new Map(); // Track monsters by map and ID
+        this.smoothingSpeed = 10.0; // Adjust for desired responsiveness (higher is faster to catch up)
+        this.lastSentPlayerData = null; // Store the last state sent
     }
     
     enableTestMode() {
@@ -888,41 +1107,42 @@ class MultiplayerManager {
     }
     
     handleMessage(message) {
-        // Add handling for monster sync messages
         if (message.action === 'monsterSync') {
             this.updateMonsters(message);
             return;
         }
         
-        // Handle messages from server that have the format from Lambda
-        if (message.senderId && (message.x !== undefined)) {
-            // Direct position update from another player
+        if (message.senderId && (message.x !== undefined) && message.action !== 'gameEvent') {
             this.updatePlayerPosition(message);
             return;
         }
         
-        // Handle direct gameEvent messages (change this)
         if (message.action === 'gameEvent') {
-            // Extract the actual player data
-            // Ensure all new fields are passed if present in message
-            this.updatePlayerPosition({
-                senderId: message.senderId,
-                x: message.x,
-                y: message.y,
-                direction: message.direction,
-                characterClass: message.characterClass,
-                name: message.name,
-                currentMap: message.currentMap,
-                spriteNum: message.spriteNum,
-                attacking: message.attacking 
-            });
+            if (message.senderId === this.playerId && message.actionType !== 'abilityUsed') { // Allow self abilityUsed for local effects if needed, but generally ignore self for pos
+                 // For position updates, ignore self. For abilityUsed, it's handled in handleAbilityUsed.
+            }
+
+            if (message.actionType === 'abilityUsed') {
+                this.handleAbilityUsed(message);
+            } else if (message.senderId !== this.playerId) { // Only update position if it's from another player
+                this.updatePlayerPosition({
+                    senderId: message.senderId,
+                    x: message.x,
+                    y: message.y,
+                    direction: message.direction,
+                    characterClass: message.characterClass,
+                    name: message.name,
+                    currentMap: message.currentMap,
+                    spriteNum: message.spriteNum,
+                    attacking: message.attacking 
+                });
+            }
             return;
         }
         
-        // Original switch for other message types
         switch (message.action) {
             case 'playerPosition':
-                this.updatePlayerPosition(message);
+                if (message.senderId !== this.playerId) this.updatePlayerPosition(message);
                 break;
             case 'playerJoined':
                 this.addPlayer(message);
@@ -930,8 +1150,195 @@ class MultiplayerManager {
             case 'playerLeft':
                 this.removePlayer(message);
                 break;
-            case 'gameAction':
-                this.handleGameAction(message);
+        }
+    }
+
+    handleAbilityUsed(data) {
+        if (data.casterId === this.playerId) return; 
+
+        const caster = this.otherPlayers.get(data.casterId);
+        if (!caster || caster.currentMap !== this.game.currentMap) {
+            console.log("Remote ability: Caster not found or on different map.", { casterId: data.casterId, abilityName: data.abilityName, casterOnMap: caster?.currentMap, localMap: this.game.currentMap });
+            return;
+        }
+
+        console.log(`Remote ability: Processing '${data.abilityName}' from ${caster.name || data.casterId}`, data);
+
+        const casterX = caster.visualX !== undefined ? caster.visualX : (caster.worldX !== undefined ? caster.worldX : caster.x);
+        const casterY = caster.visualY !== undefined ? caster.visualY : (caster.worldY !== undefined ? caster.worldY : caster.y);
+
+        switch (data.abilityName) {
+            case "Fireball":
+                { // Added block scope
+                    const fireballAbilityDef = this.game.abilityDefinitions.get("Fireball");
+                    if (!fireballAbilityDef) {
+                        console.error("Remote Fireball: Fireball ability definition not found in GamePanel.abilityDefinitions. Cannot create remote visual.");
+                        return;
+                    }
+                    if (!fireballAbilityDef.projectileImage) {
+                        console.error("Remote Fireball: Fireball ability definition found, but projectileImage property is missing.");
+                        return;
+                    }
+                    if (!fireballAbilityDef.projectileImage.complete) {
+                        console.warn(`Remote Fireball: Fireball projectile image ('${fireballAbilityDef.projectileImage.src}') not yet loaded. Effect might use fallback or not appear immediately.`);
+                    }
+                    
+                    const remoteFireball = new FireballInstance(
+                        data.startX, data.startY, data.dirX, data.dirY,
+                        this.game, null, 0, 
+                        fireballAbilityDef.speed, fireballAbilityDef.lifetime, fireballAbilityDef.projectileImage
+                    );
+                    if (!this.game.remoteEffects) this.game.remoteEffects = [];
+                    this.game.remoteEffects.push(remoteFireball);
+                    console.log("Remote Fireball instance created and added to remoteEffects:", remoteFireball);
+                }
+                break;
+            case "TripleShot":
+                { // Added block scope
+                    const tripleShotAbilityDef = this.game.abilityDefinitions.get("TripleShot");
+                    if (!tripleShotAbilityDef) {
+                        console.error("Remote TripleShot: TripleShot ability definition not found in GamePanel.abilityDefinitions. Cannot create remote visual.");
+                        return;
+                    }
+                    if (!tripleShotAbilityDef.projectileImage) {
+                        console.error("Remote TripleShot: TripleShot ability definition found, but projectileImage property is missing.");
+                        return;
+                    }
+                    // Image loading warning can remain if useful
+
+                    // Create a remote burst manager effect
+                    const remoteBurstEffect = {
+                        gp: this.game,
+                        caster: caster, // Reference to the remote player object
+                        abilityDef: tripleShotAbilityDef,
+                        direction: data.direction, // "up", "down", "left", "right"
+
+                        burstCountTotal: tripleShotAbilityDef.burstCount,
+                        burstDelay: tripleShotAbilityDef.burstDelay,
+                        burstTimer: tripleShotAbilityDef.burstDelay, // Fire first burst almost immediately
+                        currentBurstNum: 0,
+                        active: true,
+
+                        update: function() {
+                            if (!this.active) return;
+
+                            this.burstTimer += this.gp.deltaTime;
+                            if (this.burstTimer >= this.burstDelay) {
+                                this.fireRemoteTripleArrowVolley();
+                                this.burstTimer = 0;
+                                this.currentBurstNum++;
+                                if (this.currentBurstNum >= this.burstCountTotal) {
+                                    this.active = false; // Deactivate after all bursts
+                                }
+                            }
+                        },
+
+                        fireRemoteTripleArrowVolley: function() {
+                            if (!this.caster || !this.abilityDef.projectileImage.complete) return;
+
+                            let mainDirX = 0;
+                            let mainDirY = 0;
+                            switch (this.direction) {
+                                case "up": mainDirY = -1; break;
+                                case "down": mainDirY = 1; break;
+                                case "left": mainDirX = -1; break;
+                                case "right": mainDirX = 1; break;
+                            }
+
+                            // Use caster's current visual position for each volley
+                            const casterCurrentX = this.caster.visualX !== undefined ? this.caster.visualX : this.caster.worldX;
+                            const casterCurrentY = this.caster.visualY !== undefined ? this.caster.visualY : this.caster.worldY;
+
+                            // Align with the local TripleShot's starting offset
+                            const startX = casterCurrentX + this.gp.tileSize / 2 - 8;
+                            const startY = casterCurrentY + this.gp.tileSize / 2 - 8;
+
+                            const createRemoteArrow = (arrowDirX, arrowDirY) => {
+                                const remoteArrow = new ArrowInstance(
+                                    startX, startY, arrowDirX, arrowDirY,
+                                    this.gp, null, 0, // null for player, 0 for damage
+                                    this.abilityDef.speed, this.abilityDef.lifetime, this.abilityDef.projectileImage
+                                );
+                                if (!this.gp.remoteEffects) this.gp.remoteEffects = [];
+                                this.gp.remoteEffects.push(remoteArrow);
+                            };
+
+                            // Replicate local spread logic
+                            if (mainDirX === 0) { // Shooting up or down
+                                createRemoteArrow(mainDirX, mainDirY);      // Center
+                                createRemoteArrow(-0.2, mainDirY);          // Side 1 (e.g., leftish)
+                                createRemoteArrow(0.2, mainDirY);           // Side 2 (e.g., rightish)
+                            } else { // Shooting left or right
+                                createRemoteArrow(mainDirX, mainDirY);      // Center
+                                createRemoteArrow(mainDirX, -0.2);          // Side 1 (e.g., upish)
+                                createRemoteArrow(mainDirX, 0.2);           // Side 2 (e.g., downish)
+                            }
+                        },
+                        draw: function(ctx) { /* This effect itself doesn't draw anything */ }
+                    };
+
+                    if (!this.game.remoteEffects) this.game.remoteEffects = [];
+                    this.game.remoteEffects.push(remoteBurstEffect);
+                    console.log(`Remote TripleShot burst sequence initiated for ${caster.name || data.casterId}`);
+                }
+                break;
+            case "Dash":
+                // Dash definition isn't strictly needed here as its properties are sent in `data`
+                caster.isRemoteDashing = true;
+                caster.remoteDashTimer = 0;
+                caster.remoteDashDuration = data.duration;
+                caster.remoteDashSpeed = data.speed;
+                caster.remoteDashDirection = { x: data.dashDirX, y: data.dashDirY };
+                caster.remoteDashTrail = [];
+                console.log(`Remote Dash initiated for ${caster.name || data.casterId}`);
+                break;
+            case "Roll the Dice":
+                { // Added block scope
+                    const rtdAbilityDef = this.game.abilityDefinitions.get("Roll the Dice");
+                    if (!rtdAbilityDef) {
+                        console.error("Remote RollTheDice: RollTheDice ability definition not found in GamePanel.abilityDefinitions.");
+                        return;
+                    }
+                    if (!rtdAbilityDef.diceImages || !rtdAbilityDef.diceImages[data.diceResult - 1]) {
+                        console.error(`Remote RollTheDice: Dice images array or image for result ${data.diceResult} is missing in definition.`);
+                        return;
+                    }
+                    if (!rtdAbilityDef.diceImages[data.diceResult - 1].complete) {
+                         console.warn(`Remote RollTheDice: Dice image for result ${data.diceResult} ('${rtdAbilityDef.diceImages[data.diceResult - 1].src}') not yet loaded.`);
+                    }
+
+                    this.game.ui.showMessage(`${caster.name || data.casterId} rolled a ${data.diceResult}!`, 3000);
+                    const diceEffect = {
+                        caster: caster, 
+                        gp: this.game, 
+                        diceResult: data.diceResult,
+                        timer: 0, 
+                        duration: rtdAbilityDef.diceAnimationDuration || 2.0, 
+                        diceImages: rtdAbilityDef.diceImages, 
+                        active: true,
+                        update: function() {
+                            this.timer += this.gp.deltaTime;
+                            if (this.timer >= this.duration) this.active = false;
+                        },
+                        draw: function(ctx) {
+                            if (!this.active || !this.diceImages[this.diceResult - 1] || !this.diceImages[this.diceResult - 1].complete) return;
+                            const diceImage = this.diceImages[this.diceResult - 1];
+                            const diceSize = this.gp.tileSize; 
+                            const drawX = (this.caster.visualX !== undefined ? this.caster.visualX : this.caster.worldX);
+                            const drawY = (this.caster.visualY !== undefined ? this.caster.visualY : this.caster.worldY) - diceSize; 
+                            const alpha = Math.max(0, 1 - (this.timer / this.duration)); 
+                            ctx.globalAlpha = alpha;
+                            ctx.drawImage(diceImage, drawX, drawY, diceSize, diceSize);
+                            ctx.globalAlpha = 1.0;
+                        }
+                    };
+                    if (!this.game.remoteEffects) this.game.remoteEffects = [];
+                    this.game.remoteEffects.push(diceEffect);
+                    console.log(`Remote RollTheDice effect created for result ${data.diceResult} and added to remoteEffects.`);
+                }
+                break;
+            default:
+                console.warn(`Remote ability: Unknown abilityName '${data.abilityName}' received.`, data);
                 break;
         }
     }
@@ -974,6 +1381,17 @@ class MultiplayerManager {
         player.currentMap = currentMap !== undefined ? currentMap : player.currentMap;
         player.spriteNum = spriteNum !== undefined ? spriteNum : player.spriteNum;
         player.attacking = attacking !== undefined ? attacking : player.attacking;
+        
+        // Reset attack state after short delay if attacking is true
+        if (player.attacking) {
+            // Clear any existing attack timers
+            if (player.attackTimer) clearTimeout(player.attackTimer);
+            
+            // Set timer to reset attack state after 300ms
+            player.attackTimer = setTimeout(() => {
+                player.attacking = false;
+            }, 300);
+        }
     }
     
     addPlayer(data) {
@@ -1013,11 +1431,6 @@ class MultiplayerManager {
         }
     }
     
-    handleGameAction(data) {
-        // Handle other game actions (attacks, spells, etc.)
-        console.log('Game action from player', data.senderId, data);
-    }
-    
     update(timestamp) {
         // Send position updates at regular intervals
         if (timestamp - this.lastSyncTime > this.SYNC_INTERVAL) {
@@ -1038,21 +1451,47 @@ class MultiplayerManager {
     sendPosition() {
         if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
         
-        // Use worldX/worldY if available, which represent the player's actual position
-        const x = this.game.player.worldX !== undefined ? this.game.player.worldX : this.game.player.x;
-        const y = this.game.player.worldY !== undefined ? this.game.player.worldY : this.game.player.y;
+        const player = this.game.player;
+        const x = player.worldX !== undefined ? player.worldX : player.x;
+        const y = player.worldY !== undefined ? player.worldY : player.y;
         
-        this.socket.send(JSON.stringify({
-            action: 'gameEvent',
-            x: x,
-            y: y,
-            direction: this.game.player.direction,
-            characterClass: this.game.player.characterClass,
-            name: this.game.player.name,
-            currentMap: this.game.currentMap, // Send current map
-            spriteNum: this.game.player.spriteNum, // Send sprite number
-            attacking: this.game.player.attacking // Send attacking state
-        }));
+        const currentPlayerData = {
+            action: 'gameEvent', // This remains the primary action for the server
+            // senderId is added by sendGameAction if we use that, or implicitly by WebSocket connection
+            x: Math.round(x), // Round positions to reduce minor floating point diffs
+            y: Math.round(y),
+            direction: player.direction,
+            characterClass: player.characterClass,
+            name: player.name,
+            currentMap: this.game.currentMap,
+            spriteNum: player.spriteNum,
+            attacking: player.attacking
+        };
+        
+        // Check if data has changed since last send
+        let hasChanged = false;
+        if (!this.lastSentPlayerData) {
+            hasChanged = true;
+        } else {
+            // Compare relevant fields
+            if ( this.lastSentPlayerData.x !== currentPlayerData.x ||
+                 this.lastSentPlayerData.y !== currentPlayerData.y ||
+                 this.lastSentPlayerData.direction !== currentPlayerData.direction ||
+                 this.lastSentPlayerData.currentMap !== currentPlayerData.currentMap ||
+                 this.lastSentPlayerData.spriteNum !== currentPlayerData.spriteNum ||
+                 this.lastSentPlayerData.attacking !== currentPlayerData.attacking
+                // Name and characterClass are unlikely to change frequently during gameplay,
+                // but can be added if needed.
+            ) {
+                hasChanged = true;
+            }
+        }
+        
+        if (hasChanged) {
+            this.socket.send(JSON.stringify(currentPlayerData));
+            this.lastSentPlayerData = { ...currentPlayerData }; // Store a copy
+            // console.log("Sent player data:", currentPlayerData); // Optional: for debugging
+        }
     }
     
     sendMonsterSync() {
@@ -1189,36 +1628,69 @@ class MultiplayerManager {
         return localDistance <= closestRemoteDistance;
     }
     
-    // Send other game actions
     sendGameAction(actionType, actionData) {
         if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
         
         this.socket.send(JSON.stringify({
-            action: 'gameEvent',
-            actionType,
+            action: 'gameEvent', // Ensure this is the primary action for routing on the server/lambda
+            senderId: this.playerId, // Add senderId here
+            actionType, // This is our custom sub-action type like 'abilityUsed'
             ...actionData
         }));
     }
     
     smoothPlayerPositions() {
-        // Interpolation speed - adjust for desired smoothness
-        const interpolationFactor = 0.2;
-        
+        const lerpAmount = Math.min(1.0, this.smoothingSpeed * this.game.deltaTime); // Time-based factor
+
         this.otherPlayers.forEach(player => {
-            // Skip if no target position yet
+            if (player.isRemoteDashing) {
+                player.remoteDashTimer += this.game.deltaTime;
+                const moveDistance = player.remoteDashSpeed * this.game.deltaTime;
+                
+                // Update targetX/Y based on dash, visualX/Y will interpolate towards it
+                if (player.targetX === undefined) player.targetX = player.worldX;
+                if (player.targetY === undefined) player.targetY = player.worldY;
+
+                player.targetX += player.remoteDashDirection.x * moveDistance;
+                player.targetY += player.remoteDashDirection.y * moveDistance;
+                
+                if (this.game.deltaTime < 0.1) {
+                    const currentVisualX = player.visualX !== undefined ? player.visualX : player.worldX;
+                    const currentVisualY = player.visualY !== undefined ? player.visualY : player.worldY;
+                    player.remoteDashTrail.push({
+                        x: currentVisualX + this.game.tileSize / 2,
+                        y: currentVisualY + this.game.tileSize / 2,
+                        alpha: 1.0, size: this.game.tileSize * 0.6
+                    });
+                }
+                if (player.remoteDashTimer >= player.remoteDashDuration) {
+                    player.isRemoteDashing = false;
+                }
+            }
+
+            if (player.remoteDashTrail) {
+                player.remoteDashTrail = player.remoteDashTrail.filter(particle => {
+                    particle.alpha -= this.game.deltaTime * 3; 
+                    particle.size -= this.game.deltaTime * 30; 
+                    return particle.alpha > 0 && particle.size > 1;
+                });
+            }
+
             if (player.targetX === undefined || player.targetY === undefined) return;
-            
-            // Create visual position properties if they don't exist
             if (player.visualX === undefined) player.visualX = player.worldX;
             if (player.visualY === undefined) player.visualY = player.worldY;
             
-            // Smoothly interpolate between current visual position and target position
-            player.visualX += (player.targetX - player.visualX) * interpolationFactor;
-            player.visualY += (player.targetY - player.visualY) * interpolationFactor;
+            player.visualX += (player.targetX - player.visualX) * lerpAmount;
+            player.visualY += (player.targetY - player.visualY) * lerpAmount;
             
-            // Update world position to match interpolated position
-            player.worldX = player.visualX;
-            player.worldY = player.visualY;
+            // Only update worldX/Y if not dashing, to let dash control target
+            if (!player.isRemoteDashing) {
+                 player.worldX = player.visualX;
+                 player.worldY = player.visualY;
+            } else { // If dashing, worldX/Y should also follow the dash target more closely for logic
+                 player.worldX = player.targetX;
+                 player.worldY = player.targetY;
+            }
         });
     }
     

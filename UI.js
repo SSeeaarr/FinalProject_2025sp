@@ -11,6 +11,10 @@ export default class UI {
         this.heartHalf = new Image();
         this.heartEmpty = new Image();
 
+        
+        this.backpackIcon = new Image();
+        this.backpackIcon.src = './res/player/backpack.png';
+
         // Point to the res folder for heart images
         this.heartFull.src = './res/objects/FullHeart.png';
         this.heartHalf.src = './res/objects/HalfHeart.png';
@@ -55,28 +59,39 @@ export default class UI {
         ctx.font = `${this.fontSize}px ${this.fontFamily}`;
         ctx.fillStyle = 'white';
 
+        // Draw appropriate screens based on game state
         if (this.gp.gameState === this.gp.playState) {
             this.drawPlayerLife(ctx);
+            
+            // Add this check to draw inventory when flag is set
             if (this.gp.player.showInventory) {
                 this.drawInventory(ctx);
             }
+            
+            // Draw backpack icon
+            this.drawBackpackIcon(ctx);
         } else if (this.gp.gameState === this.gp.pauseState) {
-            this.drawPlayerLife(ctx);
             this.drawPauseScreen(ctx);
-            if (this.gp.player.showInventory) {
-                this.drawInventory(ctx);
-            }
+            
         } else if (this.gp.gameState === this.gp.dialogueState) {
-            this.drawPlayerLife(ctx);
             this.drawDialogueWindow(ctx);
+            
         } else if (this.gp.gameState === this.gp.gameOverState) {
             this.drawGameOverScreen(ctx);
+
+        } else if (this.gp.gameState === this.gp.winState) {
+            this.drawWinScreen(ctx);
         }
 
-        // Keep other UI elements (health, inventory, etc.)
+        // Always draw these elements regardless of game state
+        if (this.messageOn) {
+            this.drawMessage(ctx);
+        }
 
-        // Always draw message log (filtered by visibility)
+        // Other UI elements that should always be visible
         this.drawMessageLog(ctx);
+        this.drawNGPlusLevel(ctx); // Add this line to draw NG+ level
+        this.drawPartyId(ctx);
     }
 
     drawPlayerLife(ctx) {
@@ -112,6 +127,36 @@ export default class UI {
         // Draw half heart if there's a remainder
         if (currentLife === 1) {
             ctx.drawImage(this.heartHalf, x, y, heartWidth, heartHeight);
+        }
+    }
+
+    drawPartyId(ctx) {
+        if (this.gp.multiplayer && this.gp.multiplayer.partyId) {
+            const partyId = this.gp.multiplayer.partyId;
+            const text = `Room: ${partyId}`;
+            
+            // Save the entire context state
+            ctx.save();
+            
+            // Set text properties
+            ctx.font = '16px Arial';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'; // More visible white
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'bottom'; // Align by bottom edge
+            
+            // Calculate actual logical dimensions by dividing canvas dimensions by the render scale
+            const actualWidth = this.gp.canvas.width / this.gp.renderScale;
+            const actualHeight = this.gp.canvas.height / this.gp.renderScale;
+            
+            // Position at the true bottom left with minimal padding
+            const x = 20; // Padding from the left edge
+            const y = actualHeight - 20; // Small padding from the bottom
+            
+            // Draw text
+            ctx.fillText(text, x, y);
+            
+            // Restore context state
+            ctx.restore();
         }
     }
 
@@ -205,9 +250,92 @@ export default class UI {
         ctx.font = `${subtitleSize * 0.8}px Arial`;
         ctx.fillText(`Class: ${player.characterClass}`, centerX, centerY + titleSize);
         
+        // Add NG+ level information if applicable
+        if (this.gp.isNewGamePlus) {
+            // Use gold color for NG+ info like on the win screen
+            ctx.fillStyle = "#FFD700"; // Gold color
+            ctx.font = `${subtitleSize * 0.9}px Arial`;
+            ctx.fillText(`New Game+ Level: ${this.gp.newGamePlusLevel}`, centerX, centerY + titleSize * 1.5);
+            ctx.fillStyle = "white"; // Reset to white for any subsequent text
+        }
+        
         // Reset text alignment for other UI elements
         ctx.textAlign = "left";
         ctx.textBaseline = "alphabetic";
+    }
+
+    drawWinScreen(ctx) {
+        // Get canvas dimensions
+        const canvasWidth = this.gp.screenWidth / this.gp.renderScale;
+        const canvasHeight = this.gp.screenHeight / this.gp.renderScale;
+        
+        
+        // Draw background overlay
+        ctx.fillStyle = "rgba(0, 0, 40, 0.85)";
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        // Calculate center
+        const centerX = canvasWidth / 2;
+        const centerY = canvasHeight / 2;
+        
+        // Size text proportionally to the canvas
+        const titleSize = Math.min(canvasWidth, canvasHeight) * 0.1;
+        const subtitleSize = titleSize * 0.5;
+        
+        // Draw victory text with glowing effect
+        ctx.save();
+        
+        // Draw glow effect
+        ctx.shadowColor = 'rgba(255, 215, 0, 0.8)'; // Golden glow
+        ctx.shadowBlur = 15;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        
+        // Draw main victory text
+        ctx.fillStyle = "white";
+        ctx.font = `bold ${titleSize}px Arial`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("Victory!", centerX, centerY - titleSize * 0.5);
+        
+        // Draw subtitle
+        ctx.shadowBlur = 10;
+        ctx.font = `${subtitleSize}px Arial`;
+        ctx.fillText("You've defeated the Final Boss!", centerX, centerY + titleSize * 0.3);
+        
+        // Draw player stats
+        ctx.shadowBlur = 5;
+        ctx.font = `${subtitleSize * 0.7}px Arial`;
+        const player = this.gp.player;
+        
+        // Stats with golden color
+        ctx.fillStyle = "#FFD700";
+        ctx.fillText(`Level: ${player.level}   Coins: ${player.coin}`, centerX, centerY + titleSize * 1.1);
+        
+        // Draw class info
+        ctx.font = `${subtitleSize * 0.6}px Arial`;
+        ctx.fillText(`${player.name} the ${player.characterClass} has saved the realm!`, centerX, centerY + titleSize * 1.7);
+        
+        // Draw options
+        ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+        ctx.font = `${subtitleSize * 0.5}px Arial`;
+        
+        // Track which option is selected
+        const selectedOption = this.gp.winScreenOption || 0;
+        
+        // Title screen option
+        ctx.fillStyle = selectedOption === 0 ? "#FFD700" : "rgba(255, 255, 255, 0.7)";
+        ctx.fillText("Return to Title Screen", centerX, canvasHeight * 0.75);
+        
+        // New Game+ option
+        ctx.fillStyle = selectedOption === 1 ? "#FFD700" : "rgba(255, 255, 255, 0.7)";
+        ctx.fillText("Start New Game+ (Harder Enemies, Keep Your Level!)", centerX, canvasHeight * 0.8);
+        
+        // Add instructions
+        ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+        ctx.fillText("Press UP/DOWN to select, ENTER to confirm", centerX, canvasHeight * 0.9);
+        
+        ctx.restore();
     }
 
     drawSubWindow(ctx, x, y, width, height) {
@@ -649,5 +777,73 @@ export default class UI {
         ctx.font = "16px Arial";
         ctx.fillStyle = "lightgray";
         ctx.fillText(description, x, y + 30);
+    }
+
+    // Add this new method to draw the NG+ level indicator
+    drawNGPlusLevel(ctx) {
+        // Only show for NG+2 and beyond
+        if (this.gp.isNewGamePlus && this.gp.newGamePlusLevel >= 1) {
+            // Save the context state
+            ctx.save();
+            
+            // Set text properties with glow effect
+            ctx.font = 'bold 18px Arial';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'bottom';
+            
+            // Calculate position (above party ID)
+            const actualWidth = this.gp.canvas.width / this.gp.renderScale;
+            const actualHeight = this.gp.canvas.height / this.gp.renderScale;
+            const x = 20; // Same x position as party ID
+            const y = actualHeight - 50; // Higher than party ID (which is at y - 20)
+            
+            // Add glow effect
+            ctx.shadowColor = 'rgba(255, 215, 0, 0.8)'; // Gold glow
+            ctx.shadowBlur = 5;
+            
+            // Draw text with gold color
+            ctx.fillStyle = '#FFD700'; // Gold color
+            ctx.fillText(`NG+${this.gp.newGamePlusLevel}`, x, y);
+            
+            // Restore context state
+            ctx.restore();
+        }
+    }
+
+    drawBackpackIcon(ctx) {
+        const iconSize = 48;
+        const padding = 20;
+        
+        // Get the actual unscaled canvas size
+        const actualWidth = this.gp.canvas.width / this.gp.renderScale;
+        const actualHeight = this.gp.canvas.height / this.gp.renderScale;
+        
+        // Calculate position using unscaled dimensions
+        // Position above the ability icon instead of to the left
+        const x = actualWidth - iconSize - padding; // Same X as ability icon
+        const y = actualHeight - iconSize - padding - iconSize - 20; // Above ability icon with space for label
+        
+        // Draw the backpack icon background (with rounded corners)
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.beginPath();
+        ctx.roundRect(x, y, iconSize, iconSize, 8);
+        ctx.fill();
+        
+        // Draw the backpack icon
+        if (this.backpackIcon && this.backpackIcon.complete) {
+            ctx.drawImage(this.backpackIcon, x + 6, y + 4, iconSize - 8, iconSize - 8);
+        }
+        
+        // Add backpack hotkey
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('C', x + iconSize/2, y - 18);
+        
+        // Reset text properties to prevent affecting other UI elements
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = 'white';
     }
 }

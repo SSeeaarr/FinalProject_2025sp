@@ -237,8 +237,8 @@ class Projectile {
 
         // Deactivate if out of bounds
         if (
-            this.x < 0 || this.x > this.gp.screenWidth ||
-            this.y < 0 || this.y > this.gp.screenHeight
+            this.x < 0 || this.x > (this.gp.screenWidth * 1.5) ||
+            this.y < 0 || this.y > (this.gp.screenHeight * 1.5)
         ) {
             this.active = false;
         }

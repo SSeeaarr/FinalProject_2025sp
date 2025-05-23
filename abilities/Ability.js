@@ -47,6 +47,7 @@ export default class Ability {
             // Start cooldown
             this.isReady = false;
             this.cooldownTimer = this.cooldown;
+            // Subclasses will call this and then send their specific multiplayer event.
             return true;
         }
         return false;
@@ -129,7 +130,7 @@ export default class Ability {
         ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText(`'`, x + iconSize/2, y - 18);
+        ctx.fillText(`'`, x + iconSize/2, y - 12);
     }
 
     // Utility method for hit detection

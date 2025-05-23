@@ -125,7 +125,39 @@
         #confirmCodeField {
             display: none;
         }
-        
+
+        /* START: Added CSS for confirm code field layout */
+        #confirmCodeField {
+            /* display: flex; is set via JavaScript when this section is shown */
+            flex-wrap: wrap;   /* Allows items to wrap to the next line */
+            gap: 8px;          /* Space between the input row and button row, and between buttons */
+            margin-top: 15px;  /* Adds some space above this section */
+        }
+
+        #confirmCodeField input#confirmCode {
+            /* width: 100%; is already applied by another rule */
+            margin-bottom: 0; /* Rely on parent's gap for spacing instead of its own margin */
+            box-sizing: border-box; /* Ensures padding and border don't add to the 100% width */
+        }
+
+        #confirmCodeField button {
+            width: auto;        /* Override the global button style of width: 100% */
+            margin: 0;          /* Reset all margins to rely on parent's gap for spacing */
+            flex-grow: 1;       /* Allows buttons to share the available space on their line */
+            /* Padding, font-size, etc., will be inherited from global button styles or can be adjusted here */
+        }
+
+        #confirmCodeField #confirmCodeBtn {
+            flex-grow: 2; /* Makes this button take up twice as much space as the resend button */
+            /* background-color is inherited from the general button style (green) */
+        }
+
+        #confirmCodeField #resendCodeBtn {
+            flex-grow: 1;
+            /* background-color: #6c757d; is already set by its specific ID rule */
+        }
+        /* END: Added CSS for confirm code field layout */
+
         #resendCodeBtn {
             margin-top: 10px;
             background-color: #6c757d;
@@ -633,6 +665,11 @@
                     padding: 15px;
                     font-size: 16px;
                 }
+
+                #joinPartyForm .party-button {
+                    width: 80%;
+                    max-width: 300px;
+                }
                 
                 .party-members {
                     background: rgba(255, 255, 255, 0.8);
@@ -747,7 +784,10 @@
             // Join existing party
             joinPartyBtn.addEventListener('click', () => {
                 document.querySelector('.party-options').style.display = 'none';
-                joinPartyForm.style.display = 'block';
+                joinPartyForm.style.display = 'flex';
+                joinPartyForm.style.flexDirection = 'column';
+                joinPartyForm.style.alignItems = 'center';
+                joinPartyForm.style.gap = '15px';
             });
             
             // Confirm join party

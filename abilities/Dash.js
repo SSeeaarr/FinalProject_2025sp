@@ -8,11 +8,11 @@ export default class Dash extends Ability {
         
         // Setup scaling values (dash damage scales with strength and attack)
         this.baseDamage = 3;
-        this.strengthScaling = 0.4; // 40% of strength
-        this.attackScaling = 0.3; // 30% of attack
+        this.strengthScaling = 0.5; // 50% of strength
+        this.attackScaling = 0.5; // 50% of attack
         
         // Dash-specific properties
-        this.dashDuration = 0.3; // Duration of dash in seconds
+        this.dashDuration = 0.5; // Duration of dash in seconds
         this.dashTimer = 0;
         this.dashSpeed = 750; // Pixels per second during dash
         this.isDashing = false;
@@ -55,7 +55,7 @@ export default class Dash extends Ability {
                 });
             }
             
-            // Check for enemies to damage but without knockback
+            // Check for enemies to damage
             this.checkDashHit();
             
             // We still need to check for wall collisions, but not monster collisions
@@ -93,30 +93,29 @@ export default class Dash extends Ability {
 
     activate() {
         if (super.activate() && !this.isDashing) {
-            // Set dash direction based on player facing
+            let dashDirX = 0;
+            let dashDirY = 0;
             switch(this.player.direction) {
-                case "up":
-                    this.dashDirection = { x: 0, y: -1 };
-                    break;
-                case "down":
-                    this.dashDirection = { x: 0, y: 1 };
-                    break;
-                case "left":
-                    this.dashDirection = { x: -1, y: 0 };
-                    break;
-                case "right":
-                    this.dashDirection = { x: 1, y: 0 };
-                    break;
+                case "up": this.dashDirection = { x: 0, y: -1 }; dashDirY = -1; break;
+                case "down": this.dashDirection = { x: 0, y: 1 }; dashDirY = 1; break;
+                case "left": this.dashDirection = { x: -1, y: 0 }; dashDirX = -1; break;
+                case "right": this.dashDirection = { x: 1, y: 0 }; dashDirX = 1; break;
             }
-            
-            // Start dash
             this.isDashing = true;
-            this.phasing = true; // Enable phasing through monsters
+            this.phasing = true;
             this.dashTimer = 0;
-            
-            // Make player invulnerable during dash
             this.player.invincible = true;
-            
+
+            if (this.gp.multiplayer && this.gp.multiplayer.socket && this.gp.multiplayer.socket.readyState === WebSocket.OPEN) {
+                this.gp.multiplayer.sendGameAction('abilityUsed', {
+                    abilityName: this.name,
+                    casterId: this.gp.multiplayer.playerId,
+                    dashDirX: dashDirX,
+                    dashDirY: dashDirY,
+                    duration: this.dashDuration,
+                    speed: this.dashSpeed
+                });
+            }
             return true;
         }
         return false;

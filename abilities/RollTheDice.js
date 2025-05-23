@@ -8,13 +8,20 @@ export default class RollTheDice extends Ability {
         
         // Dice effects scale less with stats due to the random nature
         this.baseDamage = 2;
-        this.strengthScaling = 0.3;
+        this.strengthScaling = 0.5;
         this.dexterityScaling = 0.3;
         
+        // Default to level 1 for calculations if player is not available (e.g., for template definitions)
+        // The actual values will be recalculated in applyDiceEffect when a real player uses it.
+        let playerLevelForDefaults = 1;
+        if (this.player && typeof this.player.level === 'number') {
+            playerLevelForDefaults = this.player.level;
+        }
+
         // Scale effect magnitudes with level
-        this.damageBoostAmount = 2 + Math.floor(this.player.level * 0.5); // +0.5 per level
-        this.speedBoostMultiplier = 1.5 + (this.player.level * 0.05); // +5% per level
-        this.healAmount = 1 + Math.floor(this.player.level * 0.3); // +0.3 per level
+        this.damageBoostAmount = 3 + Math.floor(playerLevelForDefaults * 0.5); // +0.5 per level
+        this.speedBoostMultiplier = 2.5 + (playerLevelForDefaults * 0.25); // +25% per level
+        this.healAmount = 1 + Math.floor(playerLevelForDefaults * 0.3); // +0.3 per level
         
         // Dice effect properties
         this.effectDuration = 5.0; // Duration of effects in seconds
@@ -91,32 +98,51 @@ export default class RollTheDice extends Ability {
     }
 
     activate() {
-        if (super.activate()) { // Checks if ability is ready and starts cooldown
-            // Start dice rolling animation
-            this.isRolling = true;
-            this.diceAnimationTimer = 0;
-            
-            // Cancel any existing effect
-            if (this.activeEffect) {
-                this.endEffect();
-            }
-            
-            return true;
+        // Condition 1: Cannot activate if already in the middle of a rolling animation.
+        if (this.isRolling) {
+            return false;
         }
-        return false;
+
+        // Condition 2: Check cooldown via super.activate().
+        // super.activate() returns true if ready, and internally sets isReady = false and starts cooldown.
+        if (!super.activate()) {
+            return false; // Cooldown not ready or other super.activate() condition failed
+        }
+
+        // If we reach here, cooldown is fine and we are not currently in a rolling animation.
+        // Now, handle any existing buff from a previous roll.
+        if (this.activeEffect) {
+            this.endEffect(); // Clear any previous buff.
+        }
+
+        this.isRolling = true;
+        this.diceAnimationTimer = 0;
+        // Set an initial random dice face for the animation to start with.
+        // The actual outcome is the 'diceResult' value when the animation loop finishes in update().
+        this.diceResult = Math.floor(Math.random() * 6) + 1; 
+        
+        // Multiplayer event is sent in applyDiceEffect, which is called after the animation.
+        return true;
     }
     
     applyDiceEffect(diceResult) {
         this.currentEffect = diceResult;
         
         // Recalculate effect magnitudes each time based on current player level
-        this.damageBoostAmount = 2 + Math.floor(this.player.level * 0.5);
-        this.speedBoostMultiplier = 1.5 + (this.player.level * 0.05);
-        this.healAmount = 1 + Math.floor(this.player.level * 0.3);
+        // This ensures the effect uses the live player's level, even if constructor used defaults.
+        if (this.player) { // Ensure player exists before accessing level
+            const playerLevel = (typeof this.player.level === 'number' && !isNaN(this.player.level)) ? this.player.level : 1;
+            this.damageBoostAmount = 2 + Math.floor(playerLevel * 0.5);
+            this.speedBoostMultiplier = 1.5 + (playerLevel * 0.05);
+            this.healAmount = 1 + Math.floor(playerLevel * 0.3);
+        } else {
+            // Fallback if player is somehow still null here, though it shouldn't be for an active ability.
+            // The constructor already set default values for these based on playerLevelForDefaults.
+        }
         
         switch(diceResult) {
             case 1: // Heal
-                this.player.life = Math.min(this.player.life + this.healAmount, this.player.maxLife);
+                if (this.player) this.player.life = Math.min(this.player.life + this.healAmount, this.player.maxLife);
                 this.createHealParticles();
                 break;
                 
@@ -125,25 +151,40 @@ export default class RollTheDice extends Ability {
                 break;
                 
             case 3: // Temporary invincibility
-                this.player.invincible = true;
+                if (this.player) this.player.invincible = true;
                 this.createShieldParticles();
                 break;
                 
             case 4: // Damage boost
-                this.player.strength += this.damageBoostAmount;
+                if (this.player) this.player.strength += this.damageBoostAmount;
                 this.createPowerParticles();
                 break;
                 
             case 5: // Speed boost
-                this.player.baseSpeed *= this.speedBoostMultiplier;
+                if (this.player) {
+                    if (typeof this.player.speedMultiplier !== 'number' || isNaN(this.player.speedMultiplier)) {
+                        this.player.speedMultiplier = 1; // Ensure it's a number before multiplying
+                    }
+                    this.player.speedMultiplier *= this.speedBoostMultiplier;
+                }
                 this.createSpeedParticles();
                 break;
                 
             case 6: // Gold bonus
-                const goldBonus = Math.floor(Math.random() * 10) + 5; // 5-15 gold
-                this.player.coin += goldBonus;
-                this.createGoldParticles(goldBonus);
+                if (this.player) {
+                    const goldAmount = 5 + Math.floor(Math.random() * (5 + this.player.level));
+                    this.player.coin += goldAmount;
+                    this.createGoldParticles(goldAmount);
+                }
                 break;
+        }
+
+        if (this.gp.multiplayer && this.gp.multiplayer.socket && this.gp.multiplayer.socket.readyState === WebSocket.OPEN && this.player) {
+            this.gp.multiplayer.sendGameAction('abilityUsed', {
+                abilityName: this.name,
+                casterId: this.gp.multiplayer.playerId,
+                diceResult: diceResult,
+            });
         }
     }
     
@@ -169,18 +210,29 @@ export default class RollTheDice extends Ability {
         this.activeEffect = false;
         
         // Undo effect changes
-        switch(this.currentEffect) {
-            case 3: // End invincibility
-                this.player.invincible = false;
-                break;
-                
-            case 4: // End damage boost
-                this.player.strength -= this.damageBoostAmount;
-                break;
-                
-            case 5: // End speed boost
-                this.player.baseSpeed /= this.speedBoostMultiplier;
-                break;
+        if (this.player) { // Ensure player exists
+            switch(this.currentEffect) {
+                case 3: // End invincibility
+                    this.player.invincible = false;
+                    break;
+                case 4: // End damage boost
+                    // Ensure the boost amount is subtracted correctly
+                    this.player.strength -= this.damageBoostAmount;
+                    break;
+                case 5: // End speed boost
+                    // Ensure speedBoostMultiplier is not zero and is a number to avoid division by zero or NaN
+                    if (this.speedBoostMultiplier !== 0 && typeof this.speedBoostMultiplier === 'number' && !isNaN(this.speedBoostMultiplier)) {
+                        if (typeof this.player.speedMultiplier === 'number' && !isNaN(this.player.speedMultiplier)) {
+                            this.player.speedMultiplier /= this.speedBoostMultiplier;
+                        } else {
+                             this.player.speedMultiplier = 1; // Reset if player's multiplier became invalid
+                        }
+                    } else {
+                        // Fallback or error, reset to 1 if speedBoostMultiplier was invalid
+                        this.player.speedMultiplier = 1; 
+                    }
+                    break;
+            }
         }
         
         this.currentEffect = 0;
@@ -211,7 +263,7 @@ export default class RollTheDice extends Ability {
     
     damageNearbyEnemies() {
         // Damage radius (in pixels)
-        const radius = this.gp.tileSize * 4;
+        const radius = this.gp.tileSize * 6;
         
         // Player center position
         const playerCenterX = this.player.x + this.gp.tileSize / 2;

@@ -478,7 +478,7 @@ export default class AssetSetter {
                     { type: "Purple Door", x: 19, y: 18, requiredKey: "purple"  },
                 ]
             },  
-            "21": {  
+            "21": {  //final boss arena
                 monsters: [
                     { type: "Final Boss", x: 10, y: 8 }
                 ],
@@ -810,7 +810,7 @@ export default class AssetSetter {
                 if (tileNum === TILE_TYPES.GRASS || tileNum === TILE_TYPES.SNOW) {
                     availableTiles.push({ x, y });
                 } else {
-                    console.log(`Skipping tile at (${x}, ${y}) with tileNum: ${tileNum}`);
+                    
                 }
             }
         }
@@ -825,7 +825,7 @@ export default class AssetSetter {
             const randomIndex = Math.floor(Math.random() * availableTiles.length);
             const { x, y } = availableTiles.splice(randomIndex, 1)[0]; // Remove selected tile
     
-            console.log(`Placing random tree at map ${mapNum}, x: ${x}, y: ${y}`);
+            
             const tree = new OBJ_Tree();
             tree.x = x * this.gp.tileSize;
             tree.y = y * this.gp.tileSize;
@@ -856,7 +856,7 @@ export default class AssetSetter {
             const randomIndex = Math.floor(Math.random() * availableTiles.length);
             const { x, y } = availableTiles.splice(randomIndex, 1)[0]; // Remove selected tile
 
-            console.log(`Placing Snow Tree at map ${mapNum}, x: ${x}, y: ${y}`);
+            
             const snowTree = new OBJ_SnowTree();
             snowTree.x = x * this.gp.tileSize;
             snowTree.y = y * this.gp.tileSize;
@@ -870,13 +870,13 @@ export default class AssetSetter {
                     for (let y = tree.range.startY; y <= tree.range.endY; y++) {
                         const tileNum = this.gp.tileM.mapTileNum[mapNum]?.[x]?.[y];
                         if (tileNum === TILE_TYPES.GRASS || tileNum === TILE_TYPES.SNOW) {
-                            console.log(`Placing tree at map ${mapNum}, x: ${x}, y: ${y}`);
+                            
                             this.gp.obj[mapNum][mapIndex] = new OBJ_Tree();
                             this.gp.obj[mapNum][mapIndex].x = x * this.gp.tileSize;
                             this.gp.obj[mapNum][mapIndex].y = y * this.gp.tileSize;
                             mapIndex++;
                         } else {
-                            console.log(`Skipping tree at (${x}, ${y}) due to tile type: ${tileNum}`);
+                            
                         }
                     }
                 }
@@ -888,13 +888,13 @@ export default class AssetSetter {
                     for (let y = tree.snowRange.startY; y <= tree.snowRange.endY; y++) {
                         const tileNum = this.gp.tileM.mapTileNum[mapNum]?.[x]?.[y];
                         if (tileNum === TILE_TYPES.GRASS || tileNum === TILE_TYPES.SNOW) {
-                            console.log(`Placing Snow Tree at map ${mapNum}, x: ${x}, y: ${y}`);
+                            
                             this.gp.obj[mapNum][mapIndex] = new OBJ_SnowTree();
                             this.gp.obj[mapNum][mapIndex].x = x * this.gp.tileSize;
                             this.gp.obj[mapNum][mapIndex].y = y * this.gp.tileSize;
                             mapIndex++;
                         } else {
-                            console.log(`Skipping Snow Tree at (${x}, ${y}) due to tile type: ${tileNum}`);
+                            
                         }
                     }
                 }
@@ -902,7 +902,7 @@ export default class AssetSetter {
                 const { startX, endX, startY, endY, count } = tree.snowRandomRange;
                 this.addRandomSnowTreesInRange(mapNum, startX, endX, startY, endY, count);
             } else {
-                console.log(`Placing individual tree at map ${mapNum}, x: ${tree.x}, y: ${tree.y}`);
+                
                 this.gp.obj[mapNum][mapIndex] = new OBJ_Tree();
                 this.gp.obj[mapNum][mapIndex].x = tree.x * this.gp.tileSize;
                 this.gp.obj[mapNum][mapIndex].y = tree.y * this.gp.tileSize;
@@ -965,7 +965,6 @@ export default class AssetSetter {
                 this.gp.obj[mapNum][mapIndex].destinationMap = doorConfig.destinationMap;
                 this.gp.obj[mapNum][mapIndex].destinationX = doorConfig.destinationX;
                 this.gp.obj[mapNum][mapIndex].destinationY = doorConfig.destinationY;
-                console.log(`Arrow created with Destination Map: ${this.gp.obj[mapNum][mapIndex].destinationMap}, X: ${this.gp.obj[mapNum][mapIndex].destinationX}, Y: ${this.gp.obj[mapNum][mapIndex].destinationY}`);
                 mapIndex++;
             });
 
@@ -977,7 +976,6 @@ export default class AssetSetter {
                 this.gp.obj[mapNum][mapIndex].destinationMap = doorConfig.destinationMap;
                 this.gp.obj[mapNum][mapIndex].destinationX = doorConfig.destinationX;
                 this.gp.obj[mapNum][mapIndex].destinationY = doorConfig.destinationY;
-                console.log(`Arrow created with Destination Map: ${this.gp.obj[mapNum][mapIndex].destinationMap}, X: ${this.gp.obj[mapNum][mapIndex].destinationX}, Y: ${this.gp.obj[mapNum][mapIndex].destinationY}`);
                 mapIndex++;
             });
         }); 

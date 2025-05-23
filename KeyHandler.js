@@ -37,17 +37,18 @@ export default class KeyHandler {
         else if (this.gp.gameState === this.gp.dialogueState) {
             this.handleDialogueInput(e, true);
         }
-        // Add this block to handle keys in pause state
+        // Add this block to handle win screen input
+        else if (this.gp.gameState === this.gp.winState) {
+            this.handleWinScreenInput(e, true);
+        }
+        // Existing pause state handling
         else if (this.gp.gameState === this.gp.pauseState) {
             // While paused, only allow pause toggle
             if (e.code === 'KeyP') {
                 this.gp.gameState = this.gp.playState;
             }
-            
-            // No inventory toggling in pause state
-            // Remove the 'KeyC' handling here
         }
-
+        
         if (e.key === '"' || e.key === "'") {
             this.qPressed = true;
         }
@@ -246,5 +247,77 @@ export default class KeyHandler {
                 this.enterPressed = false;
             }
         }
+    }
+
+    handleWinScreenInput(e, pressed) {
+        if (!pressed) return;
+        
+        switch(e.code) {
+            case 'ArrowUp':
+            case 'KeyW':
+                // Select "Return to Title Screen" option
+                this.gp.winScreenOption = 0;
+                break;
+                
+            case 'ArrowDown':
+            case 'KeyS':
+                // Select "New Game+" option
+                this.gp.winScreenOption = 1;
+                break;
+                
+            case 'Enter':
+            case 'Space':
+                console.log(`Selected win screen option: ${this.gp.winScreenOption}`);
+                
+                if (this.gp.winScreenOption === 0) {
+                    // Return to title screen
+                    console.log("Returning to title screen");
+                    this.gp.gameState = this.gp.titleState;
+                    location.reload(); // Reset game state
+                } else if (this.gp.winScreenOption === 1) {
+                    // Start New Game+
+                    console.log("Starting New Game+");
+                    
+                    // Reset ALL key states before starting NG+
+                    this.resetAllKeyStates();
+                    
+                    this.gp.startNewGamePlus();
+                    
+                    // Reset key states AGAIN after NG+ starts to ensure they're cleared
+                    setTimeout(() => this.resetAllKeyStates(), 100);
+                }
+                
+                // Reset key state to prevent double-triggering
+                this.enterPressed = false;
+                break;
+        }
+    }
+
+    // Add this new method to reset ALL key states
+    resetAllKeyStates() {
+        // Movement keys
+        this.upPressed = false;
+        this.downPressed = false;
+        this.leftPressed = false;
+        this.rightPressed = false;
+        
+        // Action keys
+        this.attackPressed = false;
+        this.interactPressed = false;
+        this.enterPressed = false;
+        
+        // Ability keys
+        this.qPressed = false;
+        this.ePressed = false;
+        this.rPressed = false;
+        this.tPressed = false;
+        
+        // Also reset the player's momentum if applicable
+        if (this.gp.player) {
+            this.gp.player.speedX = 0;
+            this.gp.player.speedY = 0;
+        }
+        
+        console.log("All key states have been reset");
     }
 }
